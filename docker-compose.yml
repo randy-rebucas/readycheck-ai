@@ -29,6 +29,17 @@ services:
       - postgres
       - redis
 
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    environment:
+      DATABASE_URL: postgres://readycheck:readycheck@postgres:5432/readycheck
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+
   dashboard:
     build:
       context: .
