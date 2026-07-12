@@ -11,6 +11,7 @@
   "dependencies": {
     "@readycheck/ai": "workspace:*",
     "@readycheck/db": "workspace:*",
+    "@readycheck/plugins": "workspace:*",
     "@readycheck/queue": "workspace:*",
     "@readycheck/rules": "workspace:*",
     "@readycheck/scanner": "workspace:*",

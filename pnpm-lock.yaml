@@ -100,6 +100,9 @@ importers:
       '@readycheck/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@readycheck/plugins':
+        specifier: workspace:*
+        version: link:../../packages/plugins
       '@readycheck/queue':
         specifier: workspace:*
         version: link:../../packages/queue
@@ -169,6 +172,25 @@ importers:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
+
+  packages/plugins:
+    dependencies:
+      '@readycheck/rules':
+        specifier: workspace:*
+        version: link:../rules
+      '@readycheck/scanner':
+        specifier: workspace:*
+        version: link:../scanner
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.20.1)
 
   packages/queue:
     dependencies:

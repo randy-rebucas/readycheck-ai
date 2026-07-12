@@ -6,6 +6,7 @@ import simpleGit from "simple-git";
 import { QUEUE_NAMES, getRedisConnection, type ScanJobData } from "@readycheck/queue";
 import { scanRepository } from "@readycheck/scanner";
 import { coreRules, evaluateRules } from "@readycheck/rules";
+import { evaluatePlugins } from "@readycheck/plugins";
 import { scoreIssues } from "@readycheck/scoring";
 import { getPrismaClient } from "@readycheck/db";
 import { generateNarrative, getAIProvider } from "@readycheck/ai";
@@ -41,7 +42,11 @@ async function processScan(job: Job<ScanJobData>) {
     const facts = scanRepository(scanPath);
 
     await job.updateProgress({ stage: "evaluating_rules" });
-    const issues = evaluateRules(coreRules, facts);
+    const coreIssues = evaluateRules(coreRules, facts);
+
+    await job.updateProgress({ stage: "evaluating_plugins" });
+    const pluginIssues = evaluatePlugins(scanPath, facts);
+    const issues = [...coreIssues, ...pluginIssues];
 
     await job.updateProgress({ stage: "scoring" });
     const result = scoreIssues(issues);
