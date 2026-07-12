@@ -1,4 +1,4 @@
-import { Body, Controller, Get, NotFoundException, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, NotFoundException, Param, Post, Query } from "@nestjs/common";
 import { getScanQueue } from "@readycheck/queue";
 import { getPrismaClient } from "@readycheck/db";
 
@@ -20,6 +20,14 @@ export class ScansController {
     await queue.add("run-scan", { scanId: scan.id, path: dto.path }, { jobId: scan.id });
 
     return { scanId: scan.id, status: scan.status };
+  }
+
+  @Get()
+  async list(@Query("limit") limit?: string) {
+    return prisma.scan.findMany({
+      orderBy: { createdAt: "desc" },
+      take: limit ? Number(limit) : 20,
+    });
   }
 
   @Get(":id")
