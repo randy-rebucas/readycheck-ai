@@ -120,8 +120,13 @@ curl http://localhost:3001/scans/<scanId>/report?format=markdown
 
 `path` accepts either a local filesystem path or a public git URL (github/gitlab/bitbucket, or anything ending in `.git`) — the API auto-detects which.
 
+## Deployment
+
+For Docker image builds, `docker-compose` (single-host), and Kubernetes
+(`infrastructure/kubernetes/`) deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ## What's implemented vs. what's still a gap
 
 Implemented: full async scan pipeline, Postgres persistence, git cloning, a framework plugin system (Next.js), AI narrative generation with graceful degradation, report export (MD/HTML/CSV/JSON), basic API key auth, rate limiting on scan triggering.
 
-Not yet implemented: multi-tenant org/user model (all scans currently share one global list), GitHub App/OAuth integration (only public unauthenticated git clone is supported — no private repos), additional framework plugins beyond Next.js, PDF report export, Kubernetes/Terraform IaC files.
+Not yet implemented: multi-tenant org/user model (all scans currently share one global list), GitHub App integration for private-repo cloning (OAuth login exists, but scan cloning only supports public unauthenticated git URLs), additional framework plugins beyond Next.js, PDF report export, Terraform IaC (Kubernetes manifests do exist — see [DEPLOYMENT.md](DEPLOYMENT.md) — but they have known gaps, documented there).
