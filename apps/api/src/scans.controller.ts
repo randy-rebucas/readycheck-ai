@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import type { Response } from "express";
+import { Throttle } from "@nestjs/throttler";
 import { getScanQueue } from "@readycheck/queue";
 import { getPrismaClient } from "@readycheck/db";
 import { generateReport, REPORT_CONTENT_TYPES, type ReportFormat } from "@readycheck/reports";
@@ -35,6 +36,9 @@ const GIT_URL_PATTERN = /^(https?:\/\/|git@)\S+\.git$|^https?:\/\/(github|gitlab
 @Controller("scans")
 @UseGuards(ApiKeyGuard)
 export class ScansController {
+  // Scan triggering is the expensive/abusable action (spawns a clone + full
+  // pipeline run), so it gets a tighter limit than the controller-wide default.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post()
   async trigger(@Body() dto: TriggerScanDto) {
     const path = dto.path?.trim();
