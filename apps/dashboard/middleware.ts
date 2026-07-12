@@ -11,6 +11,7 @@ export const config = {
     "/settings/:path*",
     "/scans/:path*",
     "/api/scans/:path*",
+    "/api/preferences",
   ],
 };
 

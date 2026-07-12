@@ -5,8 +5,6 @@ import { applyTheme, currentTheme, type Theme } from "../ThemeToggle";
 import styles from "./settings.module.css";
 import { BellIcon, MoonIcon, SparklesIcon, SunIcon } from "../landing-icons";
 
-const STORAGE_KEY = "rc_settings";
-
 interface Preferences {
   scanComplete: boolean;
   weeklyDigest: boolean;
@@ -19,13 +17,17 @@ const DEFAULTS: Preferences = {
   productUpdates: false,
 };
 
+type SaveState = "loading" | "idle" | "saving" | "error";
+
 function Toggle({
   checked,
+  disabled,
   onChange,
   label,
   description,
 }: {
   checked: boolean;
+  disabled: boolean;
   onChange: (next: boolean) => void;
   label: string;
   description: string;
@@ -41,6 +43,7 @@ function Toggle({
         role="switch"
         aria-checked={checked}
         aria-label={label}
+        disabled={disabled}
         className={`${styles.switch} ${checked ? styles.switchOn : ""}`}
         onClick={() => onChange(!checked)}
       >
@@ -64,26 +67,39 @@ export default function SettingsPanels() {
     return () => observer.disconnect();
   }, []);
 
-  // Read after mount so server and client render the same initial markup.
+  const [saveState, setSaveState] = useState<SaveState>("loading");
+
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setPrefs({ ...DEFAULTS, ...JSON.parse(raw) });
-    } catch {
-      // Corrupt or inaccessible storage: fall back to defaults.
-    }
+    let cancelled = false;
+    fetch("/api/preferences")
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((stored: Partial<Preferences>) => {
+        if (cancelled) return;
+        setPrefs({ ...DEFAULTS, ...stored });
+        setSaveState("idle");
+      })
+      .catch(() => {
+        if (!cancelled) setSaveState("error");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   function update(patch: Partial<Preferences>) {
-    setPrefs((prev) => {
-      const next = { ...prev, ...patch };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // Storage full or blocked: the toggle still works for this visit.
-      }
-      return next;
-    });
+    const next = { ...prefs, ...patch };
+    setPrefs(next);
+    setSaveState("saving");
+    fetch("/api/preferences", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        setSaveState("idle");
+      })
+      .catch(() => setSaveState("error"));
   }
 
   return (
@@ -96,27 +112,40 @@ export default function SettingsPanels() {
         <div className={styles.prefList}>
           <Toggle
             checked={prefs.scanComplete}
+            disabled={saveState === "loading"}
             onChange={(v) => update({ scanComplete: v })}
             label="Scan completed"
             description="Notify me when a readiness scan finishes."
           />
           <Toggle
             checked={prefs.weeklyDigest}
+            disabled={saveState === "loading"}
             onChange={(v) => update({ weeklyDigest: v })}
             label="Weekly digest"
             description="A weekly summary of scans and score trends."
           />
           <Toggle
             checked={prefs.productUpdates}
+            disabled={saveState === "loading"}
             onChange={(v) => update({ productUpdates: v })}
             label="Product updates"
             description="Occasional news about new checks and features."
           />
         </div>
-        <p className={styles.note}>
-          Preferences are saved in this browser only for now — syncing them to your
-          account is coming soon.
-        </p>
+        {saveState === "error" ? (
+          <p className={styles.noteError}>
+            Couldn&apos;t reach the API to save your preferences — check that
+            <code> apps/api</code> is running, then try again.
+          </p>
+        ) : (
+          <p className={styles.note}>
+            {saveState === "loading"
+              ? "Loading your preferences…"
+              : saveState === "saving"
+                ? "Saving…"
+                : "Preferences are saved to your account."}
+          </p>
+        )}
       </section>
 
       <section className={styles.card}>

@@ -196,3 +196,18 @@
   font-size: 0.82rem;
   margin: 1rem 0 0;
 }
+
+.noteError {
+  color: var(--danger-text, #fca5a5);
+  font-size: 0.82rem;
+  margin: 1rem 0 0;
+}
+
+.noteError code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.switch:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

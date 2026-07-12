@@ -65,6 +65,35 @@ export async function fetchReport(id: string, format: string): Promise<Response>
   return res;
 }
 
+export interface UserPreferences {
+  scanComplete: boolean;
+  weeklyDigest: boolean;
+  productUpdates: boolean;
+}
+
+export async function getPreferences(userId: string): Promise<UserPreferences> {
+  const res = await fetch(`${API_URL}/users/${userId}/preferences`, {
+    cache: "no-store",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`Failed to load preferences: ${res.status}`);
+  return res.json();
+}
+
+export async function savePreferences(
+  userId: string,
+  prefs: UserPreferences
+): Promise<UserPreferences> {
+  const res = await fetch(`${API_URL}/users/${userId}/preferences`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(prefs),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Failed to save preferences: ${res.status}`);
+  return res.json();
+}
+
 export async function triggerScan(path: string): Promise<{ scanId: string; status: string }> {
   const res = await fetch(`${API_URL}/scans`, {
     method: "POST",
