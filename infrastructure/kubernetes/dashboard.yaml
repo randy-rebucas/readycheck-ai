@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard
+  namespace: readycheck-ai
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dashboard
+  template:
+    metadata:
+      labels:
+        app: dashboard
+    spec:
+      containers:
+        - name: dashboard
+          image: readycheck-ai/dashboard:latest
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: readycheck-config
+            - secretRef:
+                name: readycheck-secrets
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard
+  namespace: readycheck-ai
+spec:
+  selector:
+    app: dashboard
+  ports:
+    - port: 3000
+      targetPort: 3000

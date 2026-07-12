@@ -1,0 +1,32 @@
+# Assumes an ingress-nginx controller is already installed in the cluster.
+# Replace the host before applying.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: readycheck-ingress
+  namespace: readycheck-ai
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # apps/api's NestJS routes have no /api prefix (e.g. POST /scans, not
+    # POST /api/scans) -- strip it before forwarding.
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: readycheck.example.com
+      http:
+        paths:
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: api
+                port:
+                  number: 3001
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: dashboard
+                port:
+                  number: 3000

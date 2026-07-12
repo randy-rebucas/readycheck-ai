@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: readycheck-ai
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml # copy from secret.example.yaml and fill in real values first
+  - postgres.yaml
+  - redis.yaml
+  - api.yaml
+  - worker.yaml
+  - dashboard.yaml
+  - ingress.yaml

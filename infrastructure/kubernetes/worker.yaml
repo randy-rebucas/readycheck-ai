@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: readycheck-ai
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+        - name: worker
+          image: readycheck-ai/worker:latest
+          envFrom:
+            - configMapRef:
+                name: readycheck-config
+            - secretRef:
+                name: readycheck-secrets
+          # No liveness/readiness probes: the worker is a pure BullMQ consumer
+          # with no HTTP surface (see apps/worker/src/main.ts). Add one only if
+          # a real health signal (e.g. a lightweight status endpoint) is built --
+          # a fake httpGet probe here would just be lying to the scheduler.
+      # Graceful shutdown (apps/worker/src/main.ts) drains in-flight scans via
+      # Worker.close() before exiting -- give it real time before SIGKILL.
+      terminationGracePeriodSeconds: 120
+---
+# CPU-based autoscaling as a simple default. Queue-depth-based scaling (KEDA
+# ScaledObject watching the BullMQ Redis list) would react faster to bursty
+# scan traffic and is the better fit long-term, but isn't set up here.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker
+  namespace: readycheck-ai
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

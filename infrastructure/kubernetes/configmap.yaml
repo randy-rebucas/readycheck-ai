@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: readycheck-config
+  namespace: readycheck-ai
+data:
+  REDIS_URL: "redis://redis:6379"
+  READYCHECK_API_URL: "http://api:3001"
+  PORT: "3001"
