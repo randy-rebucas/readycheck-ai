@@ -76,13 +76,11 @@ Dashboard: http://localhost:3000. API: http://localhost:3001.
 
 Copy-paste starting points: [`apps/api/.env.example`](apps/api/.env.example),
 [`apps/worker/.env.example`](apps/worker/.env.example), and
-[`apps/dashboard/.env.local.example`](apps/dashboard/.env.local.example) (copy the
-dashboard one to `.env.local`, which Next.js loads automatically). **apps/api and
-apps/worker do not auto-load `.env`** — either export the values in your shell,
-pass `node --env-file=apps/api/.env ...` / `node --env-file=apps/worker/.env ...`,
-or set them in `docker-compose.yml` (already wired for `docker-compose up`).
-`packages/db/.env` is the one file Prisma's CLI loads automatically, for
-`DATABASE_URL` only.
+[`apps/dashboard/.env.local.example`](apps/dashboard/.env.local.example). Copy each
+to `.env.local` (or `.env`) next to its example — all three apps auto-load them at
+startup (Next.js natively; api/worker via `src/load-env.ts`). Real environment
+variables (shell exports, `docker-compose.yml`) take precedence over file values.
+`packages/db/.env` is what Prisma's CLI loads for migrations (`DATABASE_URL` only).
 
 | Variable | Used by | Purpose |
 |---|---|---|
