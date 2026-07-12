@@ -1,0 +1,15 @@
+.moon {
+  display: inline-flex;
+}
+
+.sun {
+  display: none;
+}
+
+:global([data-theme="light"]) .moon {
+  display: none;
+}
+
+:global([data-theme="light"]) .sun {
+  display: inline-flex;
+}

@@ -5,7 +5,13 @@ import { SESSION_COOKIE, verifySessionToken } from "./lib/session";
 // upstream -- without a session check it would hand scan data (issues,
 // secret findings, file inventory) to anyone who knows a scan id.
 export const config = {
-  matcher: ["/dashboard/:path*", "/scans/:path*", "/api/scans/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/profile/:path*",
+    "/settings/:path*",
+    "/scans/:path*",
+    "/api/scans/:path*",
+  ],
 };
 
 export async function middleware(request: NextRequest) {

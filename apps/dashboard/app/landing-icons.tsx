@@ -361,6 +361,14 @@ export const UserIcon = strokeIcon(
   </>
 );
 
+export const LogOutIcon = strokeIcon(
+  <>
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <path d="m16 17 5-5-5-5" />
+    <path d="M21 12H9" />
+  </>
+);
+
 export const MailIcon = strokeIcon(
   <>
     <rect x="2" y="4" width="20" height="16" rx="2" />

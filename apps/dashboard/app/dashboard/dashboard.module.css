@@ -3,16 +3,39 @@
   --surface: #0b0e17;
   --surface-2: #0f1320;
   --border: #1c2130;
+  --border-strong: #3d4457;
   --text: #e6e8ee;
   --text-muted: #9aa1b1;
   --text-faint: #7a8093;
+  --heading: #fff;
   --indigo: #6366f1;
   --blue: #3b82f6;
   --green: #34d399;
+  --surface-hover: #0d1120;
+  --panel-bg: rgba(11, 14, 23, 0.6);
+  --placeholder: #565c6c;
+  --danger-text: #fca5a5;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
   padding-bottom: 3rem;
+}
+
+:global([data-theme="light"]) .page {
+  --bg: #f4f6fb;
+  --surface: #ffffff;
+  --surface-2: #eef1f7;
+  --border: #dde3ee;
+  --border-strong: #b9c2d4;
+  --text: #1f2534;
+  --text-muted: #5a6374;
+  --text-faint: #8a92a4;
+  --heading: #101627;
+  --green: #059669;
+  --surface-hover: #f6f8fd;
+  --panel-bg: rgba(255, 255, 255, 0.75);
+  --placeholder: #9aa3b5;
+  --danger-text: #b91c1c;
 }
 
 /* ---------- Top bar ---------- */
@@ -36,7 +59,7 @@
   gap: 0.6rem;
   font-weight: 800;
   font-size: 1.25rem;
-  color: #fff;
+  color: var(--heading);
   text-decoration: none;
   white-space: nowrap;
 }
@@ -76,8 +99,8 @@
 }
 
 .iconBtn:hover {
-  color: #fff;
-  border-color: #3d4457;
+  color: var(--heading);
+  border-color: var(--border-strong);
 }
 
 .bellDot {
@@ -161,7 +184,7 @@
   font-weight: 800;
   letter-spacing: -0.02em;
   margin: 0 0 0.4rem;
-  color: #fff;
+  color: var(--heading);
 }
 
 .heroTitle span {
@@ -224,7 +247,7 @@
 }
 
 .input::placeholder {
-  color: #565c6c;
+  color: var(--placeholder);
 }
 
 .input:focus {
@@ -339,7 +362,7 @@
 }
 
 .panelInner {
-  background: rgba(11, 14, 23, 0.6);
+  background: var(--panel-bg);
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 1.5rem;
@@ -368,7 +391,7 @@
 .panelTitle {
   font-size: 1.2rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--heading);
   margin: 0;
 }
 
@@ -396,7 +419,7 @@
 }
 
 .viewAllBtn:hover {
-  border-color: #3d4457;
+  border-color: var(--border-strong);
 }
 
 .scanList {
@@ -421,8 +444,8 @@
 }
 
 .scanRow:hover {
-  border-color: #2e3547;
-  background: #0d1120;
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
 }
 
 .accent {
@@ -491,7 +514,7 @@
 .score {
   font-size: 1.35rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--heading);
   min-width: 4.2rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -564,7 +587,7 @@
 .errorNote {
   background: rgba(239, 68, 68, 0.08);
   border: 1px solid rgba(239, 68, 68, 0.35);
-  color: #fca5a5;
+  color: var(--danger-text);
   border-radius: 12px;
   padding: 0.85rem 1.1rem;
   font-size: 0.88rem;

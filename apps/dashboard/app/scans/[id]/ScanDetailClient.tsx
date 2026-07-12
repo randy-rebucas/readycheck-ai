@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Issue, ScanDetail } from "../../../lib/api";
 import type { SessionUser } from "../../../lib/session";
 import { triggerScanAction } from "../../actions";
+import ThemeToggle from "../../ThemeToggle";
 import UserMenu from "../../UserMenu";
 import styles from "./scan-detail.module.css";
 import {
@@ -29,7 +30,6 @@ import {
   HelpCircleIcon,
   InfinityIcon,
   LockIcon,
-  MoonIcon,
   PlayCircleIcon,
   RefreshIcon,
   ScanIcon,
@@ -314,14 +314,12 @@ export default function ScanDetailClient({ initialScan, user }: ScanDetailClient
           <a href="#" className={styles.navLink}>
             Integrations
           </a>
-          <a href="#" className={styles.navLink}>
+          <Link href="/settings" className={styles.navLink}>
             Settings
-          </a>
+          </Link>
         </nav>
         <div className={styles.topRight}>
-          <button type="button" className={styles.iconBtn} aria-label="Toggle theme">
-            <MoonIcon size={15} />
-          </button>
+          <ThemeToggle className={styles.iconBtn} />
           <button type="button" className={styles.iconBtn} aria-label="Notifications">
             <BellIcon size={15} />
             <span className={styles.bellDot} />

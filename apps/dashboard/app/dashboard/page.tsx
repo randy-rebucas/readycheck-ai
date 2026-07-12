@@ -2,6 +2,7 @@ import Link from "next/link";
 import { listScans, type Scan } from "../../lib/api";
 import { getCurrentUser } from "../../lib/get-current-user";
 import { triggerScanAction } from "../actions";
+import ThemeToggle from "../ThemeToggle";
 import UserMenu from "../UserMenu";
 import styles from "./dashboard.module.css";
 import {
@@ -13,9 +14,9 @@ import {
   GitHubIcon,
   HelpCircleIcon,
   LockIcon,
-  MoonIcon,
   RocketIcon,
   ScanIcon,
+  SettingsIcon,
   ShieldCheckIcon,
   StarIcon,
 } from "../landing-icons";
@@ -146,9 +147,7 @@ export default async function DashboardPage() {
           </span>
         </Link>
         <div className={styles.topRight}>
-          <button type="button" className={styles.iconBtn} aria-label="Toggle theme">
-            <MoonIcon size={16} />
-          </button>
+          <ThemeToggle className={styles.iconBtn} />
           <button type="button" className={styles.iconBtn} aria-label="Help">
             <HelpCircleIcon size={16} />
           </button>
@@ -156,6 +155,9 @@ export default async function DashboardPage() {
             <BellIcon size={16} />
             <span className={styles.bellDot} />
           </button>
+          <Link href="/settings" className={styles.iconBtn} aria-label="Settings">
+            <SettingsIcon size={16} />
+          </Link>
           {user && (
             <UserMenu
               user={user}
