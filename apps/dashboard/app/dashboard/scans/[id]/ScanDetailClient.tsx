@@ -2,19 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { Issue, ScanDetail } from "../../../lib/api";
-import type { SessionUser } from "../../../lib/session";
-import { triggerScanAction } from "../../actions";
-import ThemeToggle from "../../ThemeToggle";
-import UserMenu from "../../UserMenu";
+import type { Issue, ScanDetail } from "../../../../lib/api";
+import type { SessionUser } from "../../../../lib/session";
+import { triggerScanAction } from "../../../actions";
+import AppHeader from "../../../AppHeader";
 import styles from "./scan-detail.module.css";
 import {
   AlertTriangleIcon,
   ArrowRightIcon,
   BarChartIcon,
-  BellIcon,
   BracesIcon,
-  BrandMark,
   CheckCircleIcon,
   CheckIcon,
   ChevronDownIcon,
@@ -27,7 +24,6 @@ import {
   FlaskIcon,
   GaugeIcon,
   HashIcon,
-  HelpCircleIcon,
   InfinityIcon,
   LockIcon,
   PlayCircleIcon,
@@ -36,8 +32,9 @@ import {
   SearchIcon,
   ShieldIcon,
   SparklesIcon,
+  XCircleIcon,
   ZapIcon,
-} from "../../landing-icons";
+} from "../../../landing-icons";
 
 const progressLabels: Record<string, string> = {
   cloning: "Cloning repository",
@@ -176,8 +173,24 @@ export default function ScanDetailClient({ initialScan, user }: ScanDetailClient
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [severityFilter, setSeverityFilter] = useState<"all" | Issue["severity"]>("all");
   const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const isPending = scan.status === "queued" || scan.status === "active";
+
+  async function handleCancel() {
+    setIsCancelling(true);
+    setCancelError(null);
+    try {
+      const res = await fetch(`/api/scans/${scan.id}/cancel`, { method: "POST" });
+      if (!res.ok) throw new Error(`Failed to cancel scan: ${res.status}`);
+      setScan((prev) => ({ ...prev, status: "cancelled" }));
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : "Failed to cancel scan");
+    } finally {
+      setIsCancelling(false);
+    }
+  }
   const isGitUrl = /^https?:\/\//.test(scan.path);
 
   const progressText = useMemo(() => {
@@ -286,57 +299,10 @@ export default function ScanDetailClient({ initialScan, user }: ScanDetailClient
 
   return (
     <main className={styles.page}>
-      <header className={styles.topbar}>
-        <Link href="/" className={styles.brand}>
-          <span className={styles.brandIcon}>
-            <BrandMark size={32} />
-          </span>
-          <span>
-            ReadyCheck <span className={styles.brandAI}>AI</span>
-          </span>
-        </Link>
-        <nav className={styles.navLinks}>
-          <Link href="/dashboard" className={styles.navLink}>
-            Dashboard
-          </Link>
-          <Link
-            href="/dashboard"
-            className={`${styles.navLink} ${styles.navLinkActive}`}
-          >
-            Scans
-          </Link>
-          <a href="#" className={styles.navLink}>
-            Projects
-          </a>
-          <a href="#" className={styles.navLink}>
-            Reports
-          </a>
-          <a href="#" className={styles.navLink}>
-            Integrations
-          </a>
-          <Link href="/settings" className={styles.navLink}>
-            Settings
-          </Link>
-        </nav>
-        <div className={styles.topRight}>
-          <ThemeToggle className={styles.iconBtn} />
-          <button type="button" className={styles.iconBtn} aria-label="Notifications">
-            <BellIcon size={15} />
-            <span className={styles.bellDot} />
-          </button>
-          {user && (
-            <UserMenu
-              user={user}
-              chipClassName={styles.userChip}
-              avatarClassName={styles.userAvatar}
-              nameClassName={styles.userName}
-            />
-          )}
-        </div>
-      </header>
+      <AppHeader user={user} active="scans" />
 
       <div className={styles.container}>
-        <Link href="/dashboard" className={styles.backLink}>
+        <Link href="/dashboard/scans" className={styles.backLink}>
           <ArrowRightIcon size={14} style={{ transform: "rotate(180deg)" }} />
           All scans
         </Link>
@@ -390,6 +356,18 @@ export default function ScanDetailClient({ initialScan, user }: ScanDetailClient
               </div>
             )}
 
+            {scan.status === "cancelled" && (
+              <div className={`${styles.statusBanner} ${styles.statusBannerCancelled}`}>
+                <span className={styles.statusLeft} style={{ color: "#9aa1b1" }}>
+                  <XCircleIcon size={24} />
+                  Cancelled
+                </span>
+                <span className={styles.failedText} style={{ marginBottom: 0 }}>
+                  This scan was cancelled before it finished.
+                </span>
+              </div>
+            )}
+
             {isPending && (
               <div className={styles.progressCard}>
                 <div className={styles.progressHead}>
@@ -404,8 +382,20 @@ export default function ScanDetailClient({ initialScan, user }: ScanDetailClient
                       {scanningFile ? `Inspecting ${scanningFile}` : "Exploring the repository"}
                     </div>
                   </div>
-                  <span className={styles.liveBadge}>{isRefreshing ? "Live" : "Active"}</span>
+                  <span className={styles.progressHeadRight}>
+                    <span className={styles.liveBadge}>{isRefreshing ? "Live" : "Active"}</span>
+                    <button
+                      type="button"
+                      className={styles.cancelBtn}
+                      onClick={handleCancel}
+                      disabled={isCancelling}
+                    >
+                      <XCircleIcon size={14} />
+                      {isCancelling ? "Cancelling…" : "Cancel scan"}
+                    </button>
+                  </span>
                 </div>
+                {cancelError && <p className={styles.errorText}>{cancelError}</p>}
 
                 <div className={styles.progressTrack}>
                   <div className={styles.progressFill} style={{ width: `${progressValue}%` }} />
@@ -454,7 +444,7 @@ export default function ScanDetailClient({ initialScan, user }: ScanDetailClient
                 {DOWNLOAD_FORMATS.map(({ format, label, color, icon: Icon }) => (
                   <a
                     key={format}
-                    href={`/scans/${scan.id}/report?format=${format}`}
+                    href={`/dashboard/scans/${scan.id}/report?format=${format}`}
                     className={styles.dlBtn}
                     style={{ color, borderColor: `${color}66` }}
                   >

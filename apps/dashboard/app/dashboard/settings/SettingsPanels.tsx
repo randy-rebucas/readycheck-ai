@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { applyTheme, currentTheme, type Theme } from "../ThemeToggle";
+import { applyTheme, currentTheme, type Theme } from "../../ThemeToggle";
 import styles from "./settings.module.css";
-import { BellIcon, MoonIcon, SparklesIcon, SunIcon } from "../landing-icons";
+import { BellIcon, MoonIcon, SparklesIcon, SunIcon } from "../../landing-icons";
 
 interface Preferences {
   scanComplete: boolean;

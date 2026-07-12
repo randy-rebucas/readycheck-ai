@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { getScan } from "../../../lib/api";
-import { getCurrentUser } from "../../../lib/get-current-user";
+import { getScan } from "../../../../lib/api";
+import { getCurrentUser } from "../../../../lib/get-current-user";
 import ScanDetailClient from "./ScanDetailClient";
 
 export default async function ScanDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -13,7 +13,7 @@ export default async function ScanDetailPage({ params }: { params: Promise<{ id:
     notFound();
   }
 
-  // Guaranteed by middleware.ts (which gates /scans/*).
+  // Guaranteed by middleware.ts (which gates /dashboard/*).
   const user = await getCurrentUser();
 
   return <ScanDetailClient initialScan={scan} user={user} />;

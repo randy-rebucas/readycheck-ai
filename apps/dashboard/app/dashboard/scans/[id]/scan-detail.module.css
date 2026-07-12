@@ -136,16 +136,6 @@
   border-color: var(--border-strong);
 }
 
-.bellDot {
-  position: absolute;
-  top: 6px;
-  right: 7px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #a78bfa;
-  border: 1.5px solid var(--surface);
-}
 
 .userChip {
   display: inline-flex;
@@ -267,6 +257,12 @@
   background:
     linear-gradient(var(--surface), var(--surface)) padding-box,
     linear-gradient(90deg, rgba(239, 68, 68, 0.7), rgba(249, 115, 22, 0.7)) border-box;
+}
+
+.statusBannerCancelled {
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(90deg, rgba(148, 163, 184, 0.6), rgba(100, 116, 139, 0.6)) border-box;
 }
 
 .statusLeft {
@@ -729,6 +725,38 @@
   text-align: center;
   font-weight: 700;
   flex-shrink: 0;
+}
+
+.progressHeadRight {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.cancelBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  color: #f87171;
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.cancelBtn:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.cancelBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .progressTrack {

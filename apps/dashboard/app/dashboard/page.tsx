@@ -2,39 +2,18 @@ import Link from "next/link";
 import { listScans, type Scan } from "../../lib/api";
 import { getCurrentUser } from "../../lib/get-current-user";
 import { triggerScanAction } from "../actions";
-import ThemeToggle from "../ThemeToggle";
-import UserMenu from "../UserMenu";
+import AppHeader from "../AppHeader";
+import ScanList from "./ScanList";
 import styles from "./dashboard.module.css";
 import {
   ArrowRightIcon,
-  BellIcon,
-  BrandMark,
-  CalendarIcon,
-  CheckCircleIcon,
   GitHubIcon,
-  HelpCircleIcon,
   LockIcon,
   RocketIcon,
   ScanIcon,
-  SettingsIcon,
   ShieldCheckIcon,
   StarIcon,
 } from "../landing-icons";
-
-// Dark-theme variants of the shared light-bg palette in lib/styles.ts
-const VERDICT_COLORS: Record<string, string> = {
-  Ready: "#34d399",
-  "Ready with Minor Improvements": "#fbbf24",
-  "Not Ready": "#fb923c",
-  "High Risk": "#f87171",
-};
-
-const STATUS_META: Record<Scan["status"], { color: string; live?: boolean }> = {
-  queued: { color: "#9aa1b1", live: true },
-  active: { color: "#818cf8", live: true },
-  completed: { color: "#34d399" },
-  failed: { color: "#f87171" },
-};
 
 const AVATAR_GRADIENTS = [
   "linear-gradient(135deg, #6366f1, #ec4899)",
@@ -42,12 +21,6 @@ const AVATAR_GRADIENTS = [
   "linear-gradient(135deg, #34d399, #3b82f6)",
   "linear-gradient(135deg, #a78bfa, #38bdf8)",
 ];
-
-function accentColor(scan: Scan): string {
-  if (scan.status === "active" || scan.status === "queued") return "#6366f1";
-  if (scan.status === "failed") return "#ef4444";
-  return (scan.verdict && VERDICT_COLORS[scan.verdict]) || "#34d399";
-}
 
 function HeroArt() {
   return (
@@ -137,37 +110,7 @@ export default async function DashboardPage() {
 
   return (
     <main className={styles.page}>
-      <header className={styles.topbar}>
-        <Link href="/" className={styles.brand}>
-          <span className={styles.brandIcon}>
-            <BrandMark size={38} />
-          </span>
-          <span>
-            ReadyCheck <span className={styles.brandAI}>AI</span>
-          </span>
-        </Link>
-        <div className={styles.topRight}>
-          <ThemeToggle className={styles.iconBtn} />
-          <button type="button" className={styles.iconBtn} aria-label="Help">
-            <HelpCircleIcon size={16} />
-          </button>
-          <button type="button" className={styles.iconBtn} aria-label="Notifications">
-            <BellIcon size={16} />
-            <span className={styles.bellDot} />
-          </button>
-          <Link href="/settings" className={styles.iconBtn} aria-label="Settings">
-            <SettingsIcon size={16} />
-          </Link>
-          {user && (
-            <UserMenu
-              user={user}
-              chipClassName={styles.userChip}
-              avatarClassName={styles.userAvatar}
-              nameClassName={styles.userName}
-            />
-          )}
-        </div>
-      </header>
+      <AppHeader user={user} active="dashboard" />
 
       <section className={styles.hero}>
         <HeroArt />
@@ -247,9 +190,9 @@ export default async function DashboardPage() {
                 Your latest repository scans and readiness scores
               </p>
             </div>
-            <a href="#" className={styles.viewAllBtn}>
+            <Link href="/dashboard/scans" className={styles.viewAllBtn}>
               View All Scans <ArrowRightIcon size={14} />
-            </a>
+            </Link>
           </div>
 
           {apiError && (
@@ -262,63 +205,7 @@ export default async function DashboardPage() {
             <div className={styles.emptyState}>No scans yet — run one above.</div>
           )}
 
-          <div className={styles.scanList}>
-            {scans.map((scan) => {
-              const status = STATUS_META[scan.status] ?? STATUS_META.queued;
-              const verdictText =
-                scan.verdict ??
-                (scan.status === "active" || scan.status === "queued"
-                  ? "Scanning in progress..."
-                  : scan.status === "failed"
-                    ? "Scan failed"
-                    : null);
-              const verdictColor =
-                (scan.verdict && VERDICT_COLORS[scan.verdict]) ||
-                (scan.status === "failed" ? "#f87171" : "#818cf8");
-
-              return (
-                <Link key={scan.id} href={`/scans/${scan.id}`} className={styles.scanRow}>
-                  <span
-                    className={styles.accent}
-                    style={{ background: accentColor(scan) }}
-                  />
-                  <span className={styles.repoTile}>
-                    <GitHubIcon size={20} />
-                  </span>
-                  <span className={styles.scanInfo}>
-                    <span className={styles.scanPath}>{scan.path}</span>
-                    <span className={styles.scanDate}>
-                      <CalendarIcon size={12} />
-                      {new Date(scan.createdAt).toLocaleString("en-US")}
-                    </span>
-                  </span>
-                  <span className={styles.scanRight}>
-                    <span className={styles.score}>
-                      {scan.overallScore !== null ? `${scan.overallScore}%` : "—"}
-                    </span>
-                    <span className={styles.verdict} style={{ color: verdictColor }}>
-                      {verdictText}
-                    </span>
-                    <span
-                      className={styles.statusPill}
-                      style={{
-                        color: status.color,
-                        borderColor: `${status.color}55`,
-                        background: `${status.color}14`,
-                      }}
-                    >
-                      {status.live ? (
-                        <span className={styles.pulseDot} />
-                      ) : scan.status === "completed" ? (
-                        <CheckCircleIcon size={13} />
-                      ) : null}
-                      {scan.status}
-                    </span>
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
+          <ScanList scans={scans.slice(0, 5)} />
         </div>
       </section>
     </main>

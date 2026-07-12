@@ -1,0 +1,150 @@
+.root {
+  position: relative;
+}
+
+.bellDot {
+  position: absolute;
+  top: 7px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #a78bfa;
+  border: 1.5px solid var(--surface, #0b0e17);
+}
+
+/* Colors come from the surrounding page's theme vars (dark fallbacks). */
+.panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 340px;
+  max-width: calc(100vw - 2rem);
+  background: var(--surface, #0b0e17);
+  border: 1px solid var(--border, #1c2130);
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  z-index: 50;
+  overflow: hidden;
+}
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid var(--border, #1c2130);
+}
+
+.panelTitle {
+  color: var(--heading, #fff);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.markAllBtn {
+  background: none;
+  border: none;
+  color: #818cf8;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.markAllBtn:hover {
+  color: #a5b4fc;
+}
+
+.list {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.empty {
+  padding: 1.75rem 1rem;
+  text-align: center;
+  color: var(--text-faint, #7a8093);
+  font-size: 0.85rem;
+}
+
+.item {
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border, #1c2130);
+  padding: 0.75rem 0.9rem;
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s ease;
+}
+
+.item:last-child {
+  border-bottom: none;
+}
+
+.item:hover {
+  background: var(--surface-2, #131828);
+}
+
+.itemUnread {
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.icon {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.iconOk {
+  color: var(--green, #34d399);
+}
+
+.iconFailed {
+  color: #f87171;
+}
+
+.itemBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.itemTitle {
+  color: var(--text, #e6e8ee);
+  font-size: 0.85rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.itemText {
+  color: var(--text-muted, #9aa1b1);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.itemTime {
+  color: var(--text-faint, #7a8093);
+  font-size: 0.74rem;
+  margin-top: 0.1rem;
+}
+
+.unreadDot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #818cf8;
+  margin-top: 0.4rem;
+}

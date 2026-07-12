@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { getCurrentUser } from "../lib/get-current-user";
+import UserMenu from "./UserMenu";
 import styles from "./landing.module.css";
 import {
   AlertCircleIcon,
@@ -374,15 +376,19 @@ function HeroMockup() {
   );
 }
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const user = await getCurrentUser();
+
   return (
     <div className={styles.page}>
       <nav className={styles.nav}>
         <Link href="/" className={styles.brand}>
           <span className={styles.brandIcon}>
-            <BrandMark size={30} />
+            <BrandMark size={34} />
           </span>
-          ReadyCheck AI
+          <span>
+            ReadyCheck <span className={styles.brandAI}>AI</span>
+          </span>
         </Link>
         <div className={styles.navLinks}>
           <a href="#features">Features</a>
@@ -393,10 +399,21 @@ export default function LandingPage() {
           <a href="#">Enterprise</a>
         </div>
         <div className={styles.navRight}>
-          <Link href="/login">Log in</Link>
-          <Link href="/dashboard" className={styles.btnPrimary}>
-            Start Free Scan
-          </Link>
+          {user ? (
+            <UserMenu
+              user={user}
+              chipClassName={styles.userChip}
+              avatarClassName={styles.userAvatar}
+              nameClassName={styles.userName}
+            />
+          ) : (
+            <>
+              <Link href="/login">Log in</Link>
+              <Link href="/dashboard" className={styles.btnPrimary}>
+                Start Free Scan
+              </Link>
+            </>
+          )}
         </div>
       </nav>
 

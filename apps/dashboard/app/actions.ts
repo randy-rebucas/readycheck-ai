@@ -8,5 +8,5 @@ export async function triggerScanAction(formData: FormData) {
   if (!path) return;
 
   const { scanId } = await triggerScan(path);
-  redirect(`/scans/${scanId}`);
+  redirect(`/dashboard/scans/${scanId}`);
 }

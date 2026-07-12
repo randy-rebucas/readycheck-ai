@@ -28,7 +28,7 @@ export interface Scan {
   id: string;
   path: string;
   sourceType: "local" | "git";
-  status: "queued" | "active" | "completed" | "failed";
+  status: "queued" | "active" | "completed" | "failed" | "cancelled";
   overallScore: number | null;
   verdict: string | null;
   errorMessage: string | null;
@@ -94,6 +94,50 @@ export async function savePreferences(
   return res.json();
 }
 
+export interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  scanId: string | null;
+  createdAt: string;
+  read: boolean;
+}
+
+export interface NotificationsPage {
+  notifications: Notification[];
+  unreadCount: number;
+}
+
+export async function listNotifications(userId: string): Promise<NotificationsPage> {
+  const res = await fetch(`${API_URL}/notifications?userId=${encodeURIComponent(userId)}`, {
+    cache: "no-store",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`Failed to load notifications: ${res.status}`);
+  return res.json();
+}
+
+export async function markNotificationRead(userId: string, id: string): Promise<void> {
+  const res = await fetch(`${API_URL}/notifications/read`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ userId, id }),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Failed to mark notification read: ${res.status}`);
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/notifications/read-all`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ userId }),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Failed to mark all notifications read: ${res.status}`);
+}
+
 export async function triggerScan(path: string): Promise<{ scanId: string; status: string }> {
   const res = await fetch(`${API_URL}/scans`, {
     method: "POST",
@@ -102,5 +146,15 @@ export async function triggerScan(path: string): Promise<{ scanId: string; statu
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`Failed to trigger scan: ${res.status}`);
+  return res.json();
+}
+
+export async function cancelScan(id: string): Promise<{ scanId: string; status: string }> {
+  const res = await fetch(`${API_URL}/scans/${id}/cancel`, {
+    method: "POST",
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Failed to cancel scan: ${res.status}`);
   return res.json();
 }

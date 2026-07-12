@@ -13,6 +13,7 @@ enum ScanStatus {
   active
   completed
   failed
+  cancelled
 }
 
 enum ScanSourceType {
@@ -44,6 +45,7 @@ model Scan {
 
   issues         Issue[]
   categoryScores CategoryScore[]
+  notifications  Notification[]
 }
 
 model Issue {
@@ -87,8 +89,40 @@ model User {
   preferences  Json?
   createdAt    DateTime @default(now())
 
-  accounts    Account[]
-  resetTokens PasswordResetToken[]
+  accounts          Account[]
+  resetTokens       PasswordResetToken[]
+  notificationReads NotificationRead[]
+}
+
+/// A scan-lifecycle (or, later, other) event surfaced in the notification
+/// bell. The app is single-tenant today (scans have no owner), so these are
+/// visible to every signed-in user; read state is tracked per user below.
+model Notification {
+  id        String   @id @default(uuid())
+  type      String
+  title     String
+  body      String
+  scan      Scan?    @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  scanId    String?
+  createdAt DateTime @default(now())
+
+  reads NotificationRead[]
+
+  @@index([createdAt])
+  @@index([scanId])
+}
+
+/// Marks a Notification as read by a given user. Absence of a row means unread.
+model NotificationRead {
+  id             String       @id @default(uuid())
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  notificationId String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String
+  readAt         DateTime     @default(now())
+
+  @@unique([notificationId, userId])
+  @@index([userId])
 }
 
 /// Single-use password reset tokens. Only the SHA-256 hash is stored, so a

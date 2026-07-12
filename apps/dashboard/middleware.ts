@@ -7,11 +7,10 @@ import { SESSION_COOKIE, verifySessionToken } from "./lib/session";
 export const config = {
   matcher: [
     "/dashboard/:path*",
-    "/profile/:path*",
-    "/settings/:path*",
-    "/scans/:path*",
     "/api/scans/:path*",
     "/api/preferences",
+    "/api/notifications",
+    "/api/notifications/:path*",
   ],
 };
 

@@ -1,66 +1,33 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "../../lib/get-current-user";
-import ThemeToggle from "../ThemeToggle";
-import UserMenu from "../UserMenu";
-import dashStyles from "../dashboard/dashboard.module.css";
+import { getCurrentUser } from "../../../lib/get-current-user";
+import AppHeader from "../../AppHeader";
+import dashStyles from "../dashboard.module.css";
 import styles from "./profile.module.css";
 import {
   ArrowRightIcon,
-  BellIcon,
-  BrandMark,
   HashIcon,
-  HelpCircleIcon,
   LogOutIcon,
   MailIcon,
-  SettingsIcon,
   ShieldCheckIcon,
   UserIcon,
-} from "../landing-icons";
+} from "../../landing-icons";
 
 export const metadata = {
   title: "Profile — ReadyCheck AI",
 };
 
 export default async function ProfilePage() {
-  // Guaranteed by middleware.ts (which gates /profile), but re-checked here
+  // Guaranteed by middleware.ts (which gates /dashboard), but re-checked here
   // since this page can't assume the middleware ran (e.g. direct RSC render).
   const user = await getCurrentUser();
-  if (!user) redirect("/login?next=/profile");
+  if (!user) redirect("/login?next=/dashboard/profile");
 
   const initial = (user.name ?? user.email ?? "?").trim().charAt(0).toUpperCase();
 
   return (
     <main className={dashStyles.page}>
-      <header className={dashStyles.topbar}>
-        <Link href="/" className={dashStyles.brand}>
-          <span className={dashStyles.brandIcon}>
-            <BrandMark size={38} />
-          </span>
-          <span>
-            ReadyCheck <span className={dashStyles.brandAI}>AI</span>
-          </span>
-        </Link>
-        <div className={dashStyles.topRight}>
-          <ThemeToggle className={dashStyles.iconBtn} />
-          <button type="button" className={dashStyles.iconBtn} aria-label="Help">
-            <HelpCircleIcon size={16} />
-          </button>
-          <button type="button" className={dashStyles.iconBtn} aria-label="Notifications">
-            <BellIcon size={16} />
-            <span className={dashStyles.bellDot} />
-          </button>
-          <Link href="/settings" className={dashStyles.iconBtn} aria-label="Settings">
-            <SettingsIcon size={16} />
-          </Link>
-          <UserMenu
-            user={user}
-            chipClassName={dashStyles.userChip}
-            avatarClassName={dashStyles.userAvatar}
-            nameClassName={dashStyles.userName}
-          />
-        </div>
-      </header>
+      <AppHeader user={user} />
 
       <div className={styles.container}>
         <Link href="/dashboard" className={styles.backLink}>

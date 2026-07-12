@@ -103,17 +103,6 @@
   border-color: var(--border-strong);
 }
 
-.bellDot {
-  position: absolute;
-  top: 7px;
-  right: 8px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #a78bfa;
-  border: 1.5px solid var(--surface);
-}
-
 .userChip {
   display: inline-flex;
   align-items: center;
@@ -359,6 +348,97 @@
   .panel {
     padding: 0 1.25rem;
   }
+}
+
+.panelStandalone {
+  padding-top: 2rem;
+  padding-bottom: 2.5rem;
+}
+
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.filterChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.filterChip:hover {
+  color: var(--heading);
+  border-color: var(--border-strong);
+}
+
+.filterChipActive {
+  color: #a5b4fc;
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 1.5rem;
+}
+
+.pageBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.pageBtn:hover {
+  color: var(--heading);
+  border-color: var(--border-strong);
+}
+
+.pageBtnActive {
+  color: #a5b4fc;
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.pageBtnDisabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.pageEllipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  color: var(--text-faint);
+  font-size: 0.85rem;
 }
 
 .panelInner {

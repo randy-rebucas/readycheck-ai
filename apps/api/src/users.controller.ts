@@ -38,6 +38,12 @@ function sanitizePreferences(body: unknown): UserPreferences | null {
 
 const prisma = getPrismaClient();
 
+/** Used by NotificationsController to filter events the user opted out of. */
+export async function getPreferencesFor(userId: string): Promise<UserPreferences> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { preferences: true } });
+  return sanitizePreferences(user?.preferences) ?? { ...DEFAULT_PREFERENCES };
+}
+
 // Caller identity is the dashboard server (x-api-key), which passes the user
 // id from its own verified session cookie -- see apps/dashboard/app/api.
 @Controller("users")

@@ -70,7 +70,7 @@ export default function UserMenu({
             {user.email && <span className={styles.menuEmail}>{user.email}</span>}
           </div>
           <Link
-            href="/profile"
+            href="/dashboard/profile"
             className={styles.menuItem}
             role="menuitem"
             onClick={() => setOpen(false)}
@@ -79,7 +79,7 @@ export default function UserMenu({
             Profile
           </Link>
           <Link
-            href="/settings"
+            href="/dashboard/settings"
             className={styles.menuItem}
             role="menuitem"
             onClick={() => setOpen(false)}

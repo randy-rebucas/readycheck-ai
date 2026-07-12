@@ -21,10 +21,35 @@ async function cloneRepo(repoUrl: string): Promise<string> {
   return dir;
 }
 
+/** Short label for the notification bell -- the full path is in the scan itself. */
+function scanLabel(target: string): string {
+  const trimmed = target.replace(/\.git$/, "");
+  const segment = trimmed.split(/[\\/]/).filter(Boolean).pop();
+  return segment ?? trimmed;
+}
+
+/**
+ * Thrown by checkCancelled() when a user cancels a scan while it's active.
+ * BullMQ can't forcibly kill an in-flight processor, so cancellation is
+ * cooperative: we poll the DB between stages and unwind via this error.
+ */
+class ScanCancelledError extends Error {
+  constructor() {
+    super("Scan cancelled by user");
+    this.name = "ScanCancelledError";
+  }
+}
+
+async function checkCancelled(scanId: string): Promise<void> {
+  const scan = await prisma.scan.findUnique({ where: { id: scanId }, select: { status: true } });
+  if (scan?.status === "cancelled") throw new ScanCancelledError();
+}
+
 async function processScan(job: Job<ScanJobData>) {
   const { scanId, path, repoUrl } = job.data;
   let scanPath = path;
   let clonedDir: string | undefined;
+  const label = scanLabel(repoUrl ?? path ?? scanId);
 
   await prisma.scan.update({ where: { id: scanId }, data: { status: "active" } });
 
@@ -40,23 +65,28 @@ async function processScan(job: Job<ScanJobData>) {
       throw new Error("Scan job has neither a local path nor a repoUrl.");
     }
 
+    await checkCancelled(scanId);
     await job.updateProgress({ stage: "scanning" });
     await prisma.scan.update({ where: { id: scanId }, data: { progress: "scanning" } });
     const facts = scanRepository(scanPath);
 
+    await checkCancelled(scanId);
     await job.updateProgress({ stage: "evaluating_rules" });
     await prisma.scan.update({ where: { id: scanId }, data: { progress: "evaluating_rules" } });
     const coreIssues = evaluateRules(coreRules, facts);
 
+    await checkCancelled(scanId);
     await job.updateProgress({ stage: "evaluating_plugins" });
     await prisma.scan.update({ where: { id: scanId }, data: { progress: "evaluating_plugins" } });
     const pluginIssues = evaluatePlugins(scanPath, facts);
     const issues = [...coreIssues, ...pluginIssues];
 
+    await checkCancelled(scanId);
     await job.updateProgress({ stage: "scoring" });
     await prisma.scan.update({ where: { id: scanId }, data: { progress: "scoring" } });
     const result = scoreIssues(issues);
 
+    await checkCancelled(scanId);
     await job.updateProgress({ stage: "ai_narrative" });
     await prisma.scan.update({ where: { id: scanId }, data: { progress: "ai_narrative" } });
     const aiNarrative = await generateNarrative(
@@ -64,6 +94,7 @@ async function processScan(job: Job<ScanJobData>) {
       aiProvider
     );
 
+    await checkCancelled(scanId);
     await job.updateProgress({ stage: "persisting" });
     await prisma.scan.update({ where: { id: scanId }, data: { progress: "persisting" } });
     await prisma.$transaction([
@@ -97,6 +128,14 @@ async function processScan(job: Job<ScanJobData>) {
           completedAt: new Date(),
         },
       }),
+      prisma.notification.create({
+        data: {
+          type: "scan_completed",
+          title: `Scan completed: ${label}`,
+          body: `Readiness score ${result.overallScore}% -- ${result.verdict}.`,
+          scanId,
+        },
+      }),
     ]);
 
     await job.updateProgress({ stage: "done" });
@@ -118,16 +157,34 @@ worker.on("completed", (job) => {
 });
 
 worker.on("failed", async (job, err) => {
-  console.error(`[worker] scan ${job?.data.scanId} failed (job ${job?.id}):`, err.message);
   if (!job) return;
+
+  // Cancellation unwinds through the same throw path as a real failure, but
+  // the scan row is already "cancelled" (set by the cancel endpoint) and the
+  // user doesn't need a failure notification for something they asked for.
+  if (err instanceof ScanCancelledError) {
+    console.log(`[worker] scan ${job.data.scanId} cancelled (job ${job.id})`);
+    return;
+  }
+
+  console.error(`[worker] scan ${job.data.scanId} failed (job ${job.id}):`, err.message);
 
   // Best-effort: the Scan row may already be gone (e.g. manually deleted while
   // its job was still queued). A failure here must not crash the process --
   // an uncaught error in this handler would take down the whole worker.
   try {
+    const { scanId, path, repoUrl } = job.data;
     await prisma.scan.update({
-      where: { id: job.data.scanId },
+      where: { id: scanId },
       data: { status: "failed", errorMessage: err.message },
+    });
+    await prisma.notification.create({
+      data: {
+        type: "scan_failed",
+        title: `Scan failed: ${scanLabel(repoUrl ?? path ?? scanId)}`,
+        body: err.message,
+        scanId,
+      },
     });
   } catch (updateErr) {
     console.error(`[worker] could not record failure for scan ${job.data.scanId}:`, updateErr);

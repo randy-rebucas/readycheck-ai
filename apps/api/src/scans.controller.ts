@@ -60,6 +60,36 @@ export class ScansController {
     return { scanId: scan.id, status: scan.status };
   }
 
+  @Post(":id/cancel")
+  async cancel(@Param("id") id: string) {
+    const scan = await prisma.scan.findUnique({ where: { id } });
+    if (!scan) {
+      throw new NotFoundException(`No scan found with id ${id}`);
+    }
+    if (scan.status !== "queued" && scan.status !== "active") {
+      throw new BadRequestException(`Scan is already ${scan.status}; nothing to cancel.`);
+    }
+
+    const queue = getScanQueue();
+    const job = await queue.getJob(id);
+    if (job) {
+      const state = await job.getState();
+      // Only waiting/delayed jobs can be removed outright. An active job is
+      // mid-run in the worker process -- it cooperatively checks the scan's
+      // status between stages and bails out itself (see apps/worker).
+      if (state === "waiting" || state === "delayed") {
+        await job.remove();
+      }
+    }
+
+    const updated = await prisma.scan.update({
+      where: { id },
+      data: { status: "cancelled" },
+    });
+
+    return { scanId: updated.id, status: updated.status };
+  }
+
   @Get()
   async list(@Query("limit") limit?: string) {
     return prisma.scan.findMany({
