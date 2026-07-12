@@ -16,6 +16,7 @@ import { getScanQueue } from "@readycheck/queue";
 import { getPrismaClient } from "@readycheck/db";
 import { generateReport, REPORT_CONTENT_TYPES, type ReportFormat } from "@readycheck/reports";
 import { ApiKeyGuard } from "./api-key.guard";
+import { resolveScanSource, type TriggerScanDto } from "./scan-source";
 
 const REPORT_FORMATS: ReportFormat[] = ["json", "markdown", "csv", "html"];
 const REPORT_EXTENSIONS: Record<ReportFormat, string> = {
@@ -25,13 +26,7 @@ const REPORT_EXTENSIONS: Record<ReportFormat, string> = {
   html: "html",
 };
 
-interface TriggerScanDto {
-  path?: string;
-  repoUrl?: string;
-}
-
 const prisma = getPrismaClient();
-const GIT_URL_PATTERN = /^(https?:\/\/|git@)\S+\.git$|^https?:\/\/(github|gitlab|bitbucket)\.com\/\S+$/i;
 
 @Controller("scans")
 @UseGuards(ApiKeyGuard)
@@ -41,15 +36,11 @@ export class ScansController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post()
   async trigger(@Body() dto: TriggerScanDto) {
-    const path = dto.path?.trim();
-    const repoUrl = dto.repoUrl?.trim();
-
-    if (!path && !repoUrl) {
+    const resolved = resolveScanSource(dto);
+    if (!resolved) {
       throw new BadRequestException("Provide either 'path' or 'repoUrl'.");
     }
-
-    const isGitUrl = Boolean(repoUrl) || (path ? GIT_URL_PATTERN.test(path) : false);
-    const source = repoUrl ?? path!;
+    const { source, isGitUrl } = resolved;
 
     const scan = await prisma.scan.create({
       data: {
