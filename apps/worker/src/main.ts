@@ -8,8 +8,10 @@ import { scanRepository } from "@readycheck/scanner";
 import { coreRules, evaluateRules } from "@readycheck/rules";
 import { scoreIssues } from "@readycheck/scoring";
 import { getPrismaClient } from "@readycheck/db";
+import { generateNarrative, getAIProvider } from "@readycheck/ai";
 
 const prisma = getPrismaClient();
+const aiProvider = getAIProvider();
 
 async function cloneRepo(repoUrl: string): Promise<string> {
   const dir = mkdtempSync(join(tmpdir(), "readycheck-clone-"));
@@ -44,6 +46,12 @@ async function processScan(job: Job<ScanJobData>) {
     await job.updateProgress({ stage: "scoring" });
     const result = scoreIssues(issues);
 
+    await job.updateProgress({ stage: "ai_narrative" });
+    const aiNarrative = await generateNarrative(
+      { facts, issues, categoryScores: result.categoryScores, overallScore: result.overallScore, verdict: result.verdict },
+      aiProvider
+    );
+
     await job.updateProgress({ stage: "persisting" });
     await prisma.$transaction([
       prisma.issue.createMany({
@@ -71,13 +79,14 @@ async function processScan(job: Job<ScanJobData>) {
           overallScore: result.overallScore,
           verdict: result.verdict,
           facts: facts as object,
+          aiNarrative,
           completedAt: new Date(),
         },
       }),
     ]);
 
     await job.updateProgress({ stage: "done" });
-    return { facts, issues, ...result };
+    return { facts, issues, aiNarrative, ...result };
   } finally {
     if (clonedDir) {
       rmSync(clonedDir, { recursive: true, force: true });
@@ -105,3 +114,8 @@ worker.on("failed", async (job, err) => {
 });
 
 console.log("ReadyCheck worker listening on queue:", QUEUE_NAMES.SCAN);
+console.log(
+  aiProvider
+    ? `AI narrative generation enabled (provider: ${aiProvider.name})`
+    : "AI narrative generation disabled (no provider configured)"
+);

@@ -59,6 +59,32 @@ export default async function ScanDetailPage({ params }: { params: Promise<{ id:
         </p>
       )}
 
+      {scan.status === "completed" && (
+        <>
+          <h2 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>AI Assessment</h2>
+          {scan.aiNarrative ? (
+            <p
+              style={{
+                background: "#f8f8f8",
+                border: "1px solid #eee",
+                borderRadius: 8,
+                padding: "0.9rem 1.1rem",
+                lineHeight: 1.5,
+                marginBottom: "2rem",
+              }}
+            >
+              {scan.aiNarrative}
+            </p>
+          ) : (
+            <p style={{ color: "#888", fontSize: "0.9rem", marginBottom: "2rem" }}>
+              No AI narrative available for this scan (no AI provider configured, or
+              generation failed). The score and issues above are unaffected — they're
+              computed deterministically by the rule engine.
+            </p>
+          )}
+        </>
+      )}
+
       {scan.categoryScores.length > 0 && (
         <>
           <h2 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>Category Scores</h2>

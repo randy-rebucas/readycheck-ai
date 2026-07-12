@@ -36,6 +36,7 @@ model Scan {
   overallScore Int?
   verdict      String?
   facts        Json?
+  aiNarrative  String?
   errorMessage String?
   createdAt    DateTime       @default(now())
   completedAt  DateTime?
