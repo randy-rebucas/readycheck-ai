@@ -53,6 +53,12 @@ export default async function ScanDetailPage({ params }: { params: Promise<{ id:
         </p>
       )}
 
+      {scan.status === "failed" && (
+        <p style={{ color: "#dc2626" }}>
+          Scan failed{scan.errorMessage ? `: ${scan.errorMessage}` : "."}
+        </p>
+      )}
+
       {scan.categoryScores.length > 0 && (
         <>
           <h2 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>Category Scores</h2>

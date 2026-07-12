@@ -15,6 +15,11 @@ enum ScanStatus {
   failed
 }
 
+enum ScanSourceType {
+  local
+  git
+}
+
 enum Severity {
   critical
   high
@@ -23,14 +28,17 @@ enum Severity {
 }
 
 model Scan {
-  id          String     @id @default(uuid())
-  path        String
-  status      ScanStatus @default(queued)
+  id           String         @id @default(uuid())
+  /// Local filesystem path or git clone URL, depending on sourceType.
+  path         String
+  sourceType   ScanSourceType @default(local)
+  status       ScanStatus     @default(queued)
   overallScore Int?
-  verdict     String?
-  facts       Json?
-  createdAt   DateTime   @default(now())
-  completedAt DateTime?
+  verdict      String?
+  facts        Json?
+  errorMessage String?
+  createdAt    DateTime       @default(now())
+  completedAt  DateTime?
 
   issues         Issue[]
   categoryScores CategoryScore[]

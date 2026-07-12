@@ -14,7 +14,8 @@
     "@readycheck/rules": "workspace:*",
     "@readycheck/scanner": "workspace:*",
     "@readycheck/scoring": "workspace:*",
-    "bullmq": "^5.34.0"
+    "bullmq": "^5.34.0",
+    "simple-git": "^3.27.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

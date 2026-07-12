@@ -4,8 +4,9 @@ export const QUEUE_NAMES = {
 
 export interface ScanJobData {
   scanId: string;
-  /** Local filesystem path to scan. Repo cloning (git URL -> local path) is a later pipeline stage. */
-  path: string;
+  /** Exactly one of these is set. */
+  path?: string;
+  repoUrl?: string;
 }
 
 export type ScanJobStatus = "queued" | "active" | "completed" | "failed";

@@ -17,8 +17,8 @@ export default async function HomePage() {
     <main style={{ padding: "3rem", maxWidth: 860, margin: "0 auto" }}>
       <h1>ReadyCheck AI</h1>
       <p style={{ color: "#666" }}>
-        AI-powered production readiness platform. Trigger a scan of a local
-        repository path to get a scored readiness verdict.
+        AI-powered production readiness platform. Trigger a scan of a public
+        git repository (or a local path) to get a scored readiness verdict.
       </p>
 
       <form
@@ -27,7 +27,7 @@ export default async function HomePage() {
       >
         <input
           name="path"
-          placeholder="C:\path\to\repository"
+          placeholder="https://github.com/org/repo.git or a local path"
           required
           style={{
             flex: 1,

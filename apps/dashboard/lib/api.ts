@@ -19,9 +19,11 @@ export interface Issue {
 export interface Scan {
   id: string;
   path: string;
+  sourceType: "local" | "git";
   status: "queued" | "active" | "completed" | "failed";
   overallScore: number | null;
   verdict: string | null;
+  errorMessage: string | null;
   createdAt: string;
   completedAt: string | null;
 }
