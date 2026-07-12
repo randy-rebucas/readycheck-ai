@@ -47,6 +47,21 @@ export default async function ScanDetailPage({ params }: { params: Promise<{ id:
         )}
       </div>
 
+      {scan.status === "completed" && (
+        <div style={{ display: "flex", gap: "1rem", marginBottom: "1.5rem", fontSize: "0.85rem" }}>
+          <span style={{ color: "#888" }}>Download report:</span>
+          {(["markdown", "html", "csv", "json"] as const).map((format) => (
+            <a
+              key={format}
+              href={`/scans/${scan.id}/report?format=${format}`}
+              style={{ color: "#2563eb" }}
+            >
+              {format.toUpperCase()}
+            </a>
+          ))}
+        </div>
+      )}
+
       {isPending && (
         <p style={{ color: "#666" }}>
           Scan is still {scan.status}. Refresh this page to check for updates.

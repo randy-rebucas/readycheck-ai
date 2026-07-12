@@ -6,4 +6,5 @@ export default defineWorkspace([
   "packages/scoring",
   "packages/ai",
   "packages/plugins",
+  "packages/reports",
 ]);

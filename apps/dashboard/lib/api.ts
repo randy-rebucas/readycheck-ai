@@ -55,6 +55,15 @@ export async function getScan(id: string): Promise<ScanDetail> {
   return res.json();
 }
 
+export async function fetchReport(id: string, format: string): Promise<Response> {
+  const res = await fetch(`${API_URL}/scans/${id}/report?format=${format}`, {
+    cache: "no-store",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`Failed to fetch report: ${res.status}`);
+  return res;
+}
+
 export async function triggerScan(path: string): Promise<{ scanId: string; status: string }> {
   const res = await fetch(`${API_URL}/scans`, {
     method: "POST",

@@ -14,6 +14,7 @@
     "@nestjs/platform-express": "^10.4.0",
     "@readycheck/db": "workspace:*",
     "@readycheck/queue": "workspace:*",
+    "@readycheck/reports": "workspace:*",
     "@readycheck/rules": "workspace:*",
     "@readycheck/scanner": "workspace:*",
     "@readycheck/scoring": "workspace:*",
