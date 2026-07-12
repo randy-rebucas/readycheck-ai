@@ -2,8 +2,42 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { ScanDetail } from "../../../lib/api";
-import { severityColor, statusColor, verdictColor } from "../../../lib/styles";
+import type { Issue, ScanDetail } from "../../../lib/api";
+import type { SessionUser } from "../../../lib/session";
+import { triggerScanAction } from "../../actions";
+import UserMenu from "../../UserMenu";
+import styles from "./scan-detail.module.css";
+import {
+  AlertTriangleIcon,
+  ArrowRightIcon,
+  BarChartIcon,
+  BellIcon,
+  BracesIcon,
+  BrandMark,
+  CheckCircleIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  ClockIcon,
+  CodeIcon,
+  CubeIcon,
+  DatabaseIcon,
+  ExternalLinkIcon,
+  FileTextIcon,
+  FlaskIcon,
+  GaugeIcon,
+  HashIcon,
+  HelpCircleIcon,
+  InfinityIcon,
+  LockIcon,
+  MoonIcon,
+  PlayCircleIcon,
+  RefreshIcon,
+  ScanIcon,
+  SearchIcon,
+  ShieldIcon,
+  SparklesIcon,
+  ZapIcon,
+} from "../../landing-icons";
 
 const progressLabels: Record<string, string> = {
   cloning: "Cloning repository",
@@ -36,20 +70,115 @@ const scanningFiles = [
   "src/lib/api.ts",
 ];
 
+type IconComponent = (props: { size?: number }) => React.ReactNode;
+
+const CATEGORY_META: Record<string, { icon: IconComponent; color: string; gradient: string }> = {
+  architecture: {
+    icon: CubeIcon,
+    color: "#2dd4bf",
+    gradient: "linear-gradient(90deg, #10b981, #2dd4bf)",
+  },
+  security: {
+    icon: ShieldIcon,
+    color: "#fbbf24",
+    gradient: "linear-gradient(90deg, #f59e0b, #fbbf24)",
+  },
+  devops: {
+    icon: InfinityIcon,
+    color: "#f472b6",
+    gradient: "linear-gradient(90deg, #ec4899, #f472b6)",
+  },
+  testing: {
+    icon: FlaskIcon,
+    color: "#38bdf8",
+    gradient: "linear-gradient(90deg, #3b82f6, #38bdf8)",
+  },
+  documentation: {
+    icon: FileTextIcon,
+    color: "#a78bfa",
+    gradient: "linear-gradient(90deg, #8b5cf6, #a78bfa)",
+  },
+  performance: {
+    icon: ZapIcon,
+    color: "#4ade80",
+    gradient: "linear-gradient(90deg, #22c55e, #4ade80)",
+  },
+  database: {
+    icon: DatabaseIcon,
+    color: "#fbbf24",
+    gradient: "linear-gradient(90deg, #f59e0b, #fbbf24)",
+  },
+};
+
+const DEFAULT_CATEGORY = {
+  icon: GaugeIcon as IconComponent,
+  color: "#818cf8",
+  gradient: "linear-gradient(90deg, #6366f1, #818cf8)",
+};
+
+const SEVERITY_COLORS: Record<Issue["severity"], string> = {
+  critical: "#ef4444",
+  high: "#f97316",
+  medium: "#f59e0b",
+  low: "#60a5fa",
+};
+
+const SEVERITIES = ["critical", "high", "medium", "low"] as const;
+
+const DOWNLOAD_FORMATS = [
+  { format: "markdown", label: "Markdown", color: "#34d399", icon: FileTextIcon },
+  { format: "html", label: "HTML", color: "#38bdf8", icon: CodeIcon },
+  { format: "csv", label: "CSV", color: "#4ade80", icon: BarChartIcon },
+  { format: "json", label: "JSON", color: "#a78bfa", icon: BracesIcon },
+] as const;
+
+const VERDICT_COLORS: Record<string, string> = {
+  Ready: "#34d399",
+  "Ready with Minor Improvements": "#fbbf24",
+  "Not Ready": "#fb923c",
+  "High Risk": "#f87171",
+};
+
+function formatDate(value: string | null): string {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function formatDuration(start: string, end: string | null): string {
+  if (!end) return "—";
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "—";
+  const totalSeconds = Math.round(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+}
+
 interface ScanDetailWithProgress extends ScanDetail {
   progress?: string | null;
 }
 
 interface ScanDetailClientProps {
   initialScan: ScanDetailWithProgress;
+  user: SessionUser | null;
 }
 
-export default function ScanDetailClient({ initialScan }: ScanDetailClientProps) {
+export default function ScanDetailClient({ initialScan, user }: ScanDetailClientProps) {
   const [scan, setScan] = useState<ScanDetailWithProgress>(initialScan);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [severityFilter, setSeverityFilter] = useState<"all" | Issue["severity"]>("all");
+  const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
 
   const isPending = scan.status === "queued" || scan.status === "active";
+  const isGitUrl = /^https?:\/\//.test(scan.path);
 
   const progressText = useMemo(() => {
     if (scan.progress) {
@@ -137,300 +266,415 @@ export default function ScanDetailClient({ initialScan }: ScanDetailClientProps)
     };
   }, [isPending, scan.id]);
 
+  const severityCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const issue of scan.issues) {
+      counts[issue.severity] = (counts[issue.severity] ?? 0) + 1;
+    }
+    return counts;
+  }, [scan.issues]);
+
+  const visibleIssues = useMemo(
+    () =>
+      severityFilter === "all"
+        ? scan.issues
+        : scan.issues.filter((issue) => issue.severity === severityFilter),
+    [scan.issues, severityFilter]
+  );
+
+  const verdictColor = (scan.verdict && VERDICT_COLORS[scan.verdict]) || "#34d399";
+
   return (
-    <>
-      <style>{`
-        @keyframes pulseGlow {
-          0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(56, 189, 248, 0.16)); }
-          50% { transform: scale(1.04); filter: drop-shadow(0 0 22px rgba(56, 189, 248, 0.35)); }
-        }
+    <main className={styles.page}>
+      <header className={styles.topbar}>
+        <Link href="/" className={styles.brand}>
+          <span className={styles.brandIcon}>
+            <BrandMark size={32} />
+          </span>
+          <span>
+            ReadyCheck <span className={styles.brandAI}>AI</span>
+          </span>
+        </Link>
+        <nav className={styles.navLinks}>
+          <Link href="/dashboard" className={styles.navLink}>
+            Dashboard
+          </Link>
+          <Link
+            href="/dashboard"
+            className={`${styles.navLink} ${styles.navLinkActive}`}
+          >
+            Scans
+          </Link>
+          <a href="#" className={styles.navLink}>
+            Projects
+          </a>
+          <a href="#" className={styles.navLink}>
+            Reports
+          </a>
+          <a href="#" className={styles.navLink}>
+            Integrations
+          </a>
+          <a href="#" className={styles.navLink}>
+            Settings
+          </a>
+        </nav>
+        <div className={styles.topRight}>
+          <button type="button" className={styles.iconBtn} aria-label="Toggle theme">
+            <MoonIcon size={15} />
+          </button>
+          <button type="button" className={styles.iconBtn} aria-label="Notifications">
+            <BellIcon size={15} />
+            <span className={styles.bellDot} />
+          </button>
+          {user && (
+            <UserMenu
+              user={user}
+              chipClassName={styles.userChip}
+              avatarClassName={styles.userAvatar}
+              nameClassName={styles.userName}
+            />
+          )}
+        </div>
+      </header>
 
-        @keyframes pulseShell {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.06); }
-        }
-
-        @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
-        }
-
-        @keyframes shimmerBar {
-          0% { background-position: 0% 50%; }
-          100% { background-position: 200% 50%; }
-        }
-      `}</style>
-      <main style={{ padding: "3rem", maxWidth: 860, margin: "0 auto" }}>
-        <Link href="/" style={{ color: "#666", fontSize: "0.9rem" }}>
-          ← All scans
+      <div className={styles.container}>
+        <Link href="/dashboard" className={styles.backLink}>
+          <ArrowRightIcon size={14} style={{ transform: "rotate(180deg)" }} />
+          All scans
         </Link>
 
-      <h1 style={{ fontFamily: "monospace", fontSize: "1.1rem", marginTop: "0.5rem" }}>
-        {scan.path}
-      </h1>
-
-      <div style={{ display: "flex", alignItems: "center", gap: "1rem", margin: "1rem 0 0.75rem" }}>
-        <span
-          style={{
-            fontSize: "0.8rem",
-            padding: "0.2rem 0.6rem",
-            borderRadius: 999,
-            background: statusColor[scan.status] ?? "#666",
-            color: "#fff",
-          }}
-        >
-          {scan.status}
-        </span>
-        {scan.overallScore !== null && (
-          <span style={{ fontSize: "1.5rem", fontWeight: 700 }}>{scan.overallScore}%</span>
-        )}
-        {scan.verdict && (
-          <span style={{ color: verdictColor[scan.verdict] ?? "#333", fontWeight: 600 }}>
-            {scan.verdict}
-          </span>
-        )}
-      </div>
-
-      {isPending && (
-        <div
-          style={{
-            marginTop: "1rem",
-            marginBottom: "1.5rem",
-            color: "#fff",
-            background: "linear-gradient(180deg, #111827 0%, #1f2937 100%)",
-            border: "1px solid rgba(148, 163, 184, 0.18)",
-            borderRadius: 20,
-            padding: "1rem",
-            boxShadow: "0 20px 50px rgba(15, 23, 42, 0.18)",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "center" }}>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.45rem" }}>
-                <span
-                  style={{
-                    width: 28,
-                    height: 28,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: 999,
-                    background: "rgba(59, 130, 246, 0.18)",
-                    color: "#93c5fd",
-                    fontSize: "1rem",
-                    animation: "pulseGlow 2s ease-in-out infinite",
-                  }}
+        <div className={styles.headGrid}>
+          <div>
+            <div className={styles.titleRow}>
+              <h1 className={styles.repoTitle}>{scan.path}</h1>
+              {isGitUrl && (
+                <a
+                  href={scan.path.replace(/\.git$/, "")}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={styles.extLink}
+                  aria-label="Open repository"
                 >
-                  🔍
+                  <ExternalLinkIcon size={17} />
+                </a>
+              )}
+            </div>
+
+            {scan.status === "completed" && (
+              <div className={styles.statusBanner}>
+                <span className={styles.statusLeft} style={{ color: "#34d399" }}>
+                  <CheckCircleIcon size={26} />
+                  Completed
                 </span>
-                <span style={{ fontWeight: 700, fontSize: "0.95rem" }}>{progressText}</span>
+                {scan.overallScore !== null && (
+                  <span className={styles.bigScore}>{scan.overallScore}%</span>
+                )}
+                {scan.verdict && (
+                  <>
+                    <span className={styles.bannerDivider} />
+                    <span className={styles.bannerVerdict} style={{ color: verdictColor }}>
+                      {scan.verdict}
+                    </span>
+                  </>
+                )}
               </div>
-              <div style={{ color: "#94a3b8", fontSize: "0.88rem" }}>
-                {scanningFile ? `Inspecting ${scanningFile}` : "Exploring the repository"}
+            )}
+
+            {scan.status === "failed" && (
+              <div className={`${styles.statusBanner} ${styles.statusBannerFailed}`}>
+                <span className={styles.statusLeft} style={{ color: "#f87171" }}>
+                  <AlertTriangleIcon size={24} />
+                  Failed
+                </span>
+                <span className={styles.failedText} style={{ marginBottom: 0 }}>
+                  {scan.errorMessage ?? "The scan could not be completed."}
+                </span>
               </div>
-            </div>
-            <div
-              style={{
-                minWidth: 96,
-                padding: "0.5rem 0.75rem",
-                borderRadius: 999,
-                background: "rgba(56, 189, 248, 0.16)",
-                color: "#38bdf8",
-                fontSize: "0.82rem",
-                textAlign: "center",
-                fontWeight: 700,
-              }}
-            >
-              {isRefreshing ? "Live" : "Active"}
-            </div>
+            )}
+
+            {isPending && (
+              <div className={styles.progressCard}>
+                <div className={styles.progressHead}>
+                  <div>
+                    <div className={styles.progressTitle}>
+                      <span className={styles.progressIconWrap}>
+                        <SearchIcon size={15} />
+                      </span>
+                      {progressText}
+                    </div>
+                    <div className={styles.progressSub}>
+                      {scanningFile ? `Inspecting ${scanningFile}` : "Exploring the repository"}
+                    </div>
+                  </div>
+                  <span className={styles.liveBadge}>{isRefreshing ? "Live" : "Active"}</span>
+                </div>
+
+                <div className={styles.progressTrack}>
+                  <div className={styles.progressFill} style={{ width: `${progressValue}%` }} />
+                </div>
+
+                <div className={styles.stageChips}>
+                  {progressStages.map((stage, index) => {
+                    const isActive = index === currentStageIndex;
+                    const isComplete = index < currentStageIndex;
+                    return (
+                      <span
+                        key={stage}
+                        className={`${styles.stageChip} ${
+                          isActive
+                            ? styles.stageChipActive
+                            : isComplete
+                              ? styles.stageChipDone
+                              : ""
+                        }`}
+                      >
+                        {isComplete && <CheckIcon size={11} />}
+                        {progressLabels[stage]}
+                      </span>
+                    );
+                  })}
+                </div>
+
+                {scanningFile && (
+                  <div className={styles.scanTarget}>
+                    <span className={styles.scanTargetIcon}>
+                      <ScanIcon size={16} />
+                    </span>
+                    <span>
+                      <span className={styles.scanTargetLabel}>Active scan target</span>
+                      <br />
+                      <span className={styles.scanTargetFile}>{scanningFile}</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {scan.status === "completed" && (
+              <div className={styles.downloadRow}>
+                <span>Download report:</span>
+                {DOWNLOAD_FORMATS.map(({ format, label, color, icon: Icon }) => (
+                  <a
+                    key={format}
+                    href={`/scans/${scan.id}/report?format=${format}`}
+                    className={styles.dlBtn}
+                    style={{ color, borderColor: `${color}66` }}
+                  >
+                    <Icon size={13} />
+                    {label.toUpperCase()}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div style={{ marginTop: "1rem", height: 10, borderRadius: 999, background: "rgba(148, 163, 184, 0.16)", overflow: "hidden" }}>
-            <div
-              style={{
-                width: `${progressValue}%`,
-                height: "100%",
-                background: "linear-gradient(90deg, #38bdf8, #60a5fa)",
-                transition: "width 0.35s ease",
-                boxShadow: "0 0 18px rgba(56, 189, 248, 0.28)",
-                animation: "shimmerBar 2.5s linear infinite",
-              }}
-            />
+          <aside className={styles.metaCard}>
+            <div className={styles.metaRow}>
+              <span className={styles.metaIcon}>
+                <HashIcon size={15} />
+              </span>
+              <span className={styles.metaLabel}>Scan ID</span>
+              <span className={styles.metaValue} title={scan.id}>
+                {scan.id}
+              </span>
+            </div>
+            <div className={styles.metaRow}>
+              <span className={styles.metaIcon}>
+                <PlayCircleIcon size={15} />
+              </span>
+              <span className={styles.metaLabel}>Scan started</span>
+              <span className={styles.metaValue}>{formatDate(scan.createdAt)}</span>
+            </div>
+            <div className={styles.metaRow}>
+              <span className={styles.metaIcon}>
+                <CheckCircleIcon size={15} />
+              </span>
+              <span className={styles.metaLabel}>Scan completed</span>
+              <span className={styles.metaValue}>{formatDate(scan.completedAt)}</span>
+            </div>
+            <div className={styles.metaRow}>
+              <span className={styles.metaIcon}>
+                <ClockIcon size={15} />
+              </span>
+              <span className={styles.metaLabel}>Duration</span>
+              <span className={styles.metaValue}>
+                {formatDuration(scan.createdAt, scan.completedAt)}
+              </span>
+            </div>
+          </aside>
+        </div>
+
+        {scan.status === "completed" && (
+          <div className={styles.aiCard}>
+            <span className={styles.aiIcon}>
+              <SparklesIcon size={22} />
+            </span>
+            <div>
+              <h2 className={styles.aiTitle}>AI Assessment</h2>
+              {scan.aiNarrative ? (
+                <p className={styles.aiText}>{scan.aiNarrative}</p>
+              ) : (
+                <p className={styles.aiText}>
+                  No AI narrative available for this scan (no AI provider configured, or
+                  generation failed).
+                  <br />
+                  The score and issues above are unaffected &mdash; they&apos;re computed
+                  deterministically by the rule engine.
+                </p>
+              )}
+            </div>
           </div>
+        )}
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "1rem" }}>
-            {progressStages.map((stage, index) => {
-              const stageLabel = progressLabels[stage];
-              const isActive = index === currentStageIndex;
-              const isComplete = index < currentStageIndex;
+        {scan.categoryScores.length > 0 && (
+          <>
+            <div className={styles.sectionHead}>
+              <span className={styles.sectionIcon}>
+                <BarChartIcon size={19} />
+              </span>
+              <h2 className={styles.sectionTitle}>Category Scores</h2>
+            </div>
+            <div className={styles.catGrid}>
+              {scan.categoryScores.map((c) => {
+                const meta = CATEGORY_META[c.category.toLowerCase()] ?? DEFAULT_CATEGORY;
+                const Icon = meta.icon;
+                return (
+                  <div key={c.id} className={styles.catCard}>
+                    <div className={styles.catHead}>
+                      <span
+                        className={styles.catIcon}
+                        style={{ background: `${meta.color}1f`, color: meta.color }}
+                      >
+                        <Icon size={17} />
+                      </span>
+                      <span className={styles.catName}>{c.category}</span>
+                      <span className={styles.catScore}>{c.score}%</span>
+                    </div>
+                    <div className={styles.barTrack}>
+                      <div
+                        className={styles.barFill}
+                        style={{ width: `${c.score}%`, background: meta.gradient }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
 
-              return (
-                <div
-                  key={stage}
+        <div className={styles.issuesHead}>
+          <span className={styles.sectionIcon} style={{ color: "#f87171" }}>
+            <AlertTriangleIcon size={19} />
+          </span>
+          <h2 className={styles.sectionTitle}>Issues ({scan.issues.length})</h2>
+          {scan.issues.length > 0 && (
+            <div className={styles.issueFilters}>
+              <button
+                type="button"
+                className={styles.filterChip}
+                onClick={() => setSeverityFilter("all")}
+                style={{
+                  color: "#a5b4fc",
+                  borderColor:
+                    severityFilter === "all" ? "#6366f1" : undefined,
+                  background:
+                    severityFilter === "all" ? "rgba(99, 102, 241, 0.12)" : undefined,
+                }}
+              >
+                All ({scan.issues.length})
+              </button>
+              {SEVERITIES.map((severity) => {
+                const count = severityCounts[severity] ?? 0;
+                if (count === 0) return null;
+                const color = SEVERITY_COLORS[severity];
+                const isActive = severityFilter === severity;
+                return (
+                  <button
+                    key={severity}
+                    type="button"
+                    className={styles.filterChip}
+                    onClick={() => setSeverityFilter(isActive ? "all" : severity)}
+                    style={{
+                      color,
+                      borderColor: isActive ? color : undefined,
+                      background: isActive ? `${color}1f` : undefined,
+                    }}
+                  >
+                    {severity.charAt(0).toUpperCase() + severity.slice(1)} ({count})
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {scan.issues.length === 0 && !isPending && (
+          <p className={styles.noIssues}>No issues found.</p>
+        )}
+
+        <div className={styles.issueList}>
+          {visibleIssues.map((issue) => {
+            const meta = CATEGORY_META[issue.category.toLowerCase()] ?? DEFAULT_CATEGORY;
+            const Icon = meta.icon;
+            const sevColor = SEVERITY_COLORS[issue.severity] ?? "#9aa1b1";
+            const isExpanded = expandedIssue === issue.id;
+            return (
+              <div key={issue.id} className={styles.issueCard}>
+                <span
+                  className={styles.sevBadge}
                   style={{
-                    padding: "0.45rem 0.75rem",
-                    borderRadius: 999,
-                    background: isActive ? "rgba(56, 189, 248, 0.22)" : isComplete ? "rgba(59, 130, 246, 0.12)" : "rgba(148, 163, 184, 0.12)",
-                    color: isActive ? "#cffafe" : isComplete ? "#7dd3fc" : "#94a3b8",
-                    fontSize: "0.76rem",
-                    fontWeight: isActive ? 700 : 500,
-                    boxShadow: isActive ? "0 0 22px rgba(56, 189, 248, 0.22)" : "none",
-                    transform: isActive ? "scale(1.04)" : "none",
-                    transition: "transform 0.25s ease, background-color 0.25s ease",
-                    animation: isActive ? "pulseShell 1.6s ease-in-out infinite" : undefined,
+                    color: sevColor,
+                    borderColor: `${sevColor}55`,
+                    background: `${sevColor}12`,
                   }}
                 >
-                  {isComplete ? `✔ ${stageLabel}` : stageLabel}
+                  <Icon size={18} />
+                  {issue.severity}
+                </span>
+                <div className={styles.issueBody}>
+                  <p className={styles.issueTitle}>
+                    {issue.ruleId} &mdash; {issue.message}
+                  </p>
+                  <p className={styles.issueRec}>{issue.recommendation}</p>
+                  {isExpanded && (
+                    <p className={styles.issueEffort}>
+                      Estimated effort: <strong>{issue.estimatedEffort || "unknown"}</strong>
+                    </p>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-
-          {scanningFile && (
-            <div
-              style={{
-                marginTop: "1.1rem",
-                padding: "0.85rem 1rem",
-                borderRadius: 16,
-                background: "rgba(255, 255, 255, 0.06)",
-                border: "1px solid rgba(255, 255, 255, 0.08)",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-              }}
-            >
-              <span
-                style={{
-                  width: 34,
-                  height: 34,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: 999,
-                  background: "rgba(255, 255, 255, 0.1)",
-                  color: "#a5b4fc",
-                  fontSize: "1.1rem",
-                  animation: "bounce 1.2s ease-in-out infinite",
-                }}
-              >
-                🔎
-              </span>
-              <div>
-                <div style={{ fontSize: "0.88rem", color: "#e2e8f0" }}>Active scan target</div>
-                <div style={{ fontWeight: 700, color: "#fff" }}>{scanningFile}</div>
+                <span className={styles.issueRight}>
+                  <span className={styles.catChip}>{issue.category}</span>
+                  <button
+                    type="button"
+                    className={`${styles.expandBtn} ${isExpanded ? styles.expandBtnOpen : ""}`}
+                    onClick={() => setExpandedIssue(isExpanded ? null : issue.id)}
+                    aria-label={isExpanded ? "Collapse issue details" : "Expand issue details"}
+                    aria-expanded={isExpanded}
+                  >
+                    <ChevronDownIcon size={17} />
+                  </button>
+                </span>
               </div>
-            </div>
-          )}
+            );
+          })}
         </div>
-      )}
 
-      {scan.status === "completed" && (
-        <div style={{ display: "flex", gap: "1rem", marginBottom: "1.5rem", fontSize: "0.85rem" }}>
-          <span style={{ color: "#888" }}>Download report:</span>
-          {(["markdown", "html", "csv", "json"] as const).map((format) => (
-            <a key={format} href={`/scans/${scan.id}/report?format=${format}`} style={{ color: "#2563eb" }}>
-              {format.toUpperCase()}
-            </a>
-          ))}
-        </div>
-      )}
+        {scan.status === "completed" && (
+          <form action={triggerScanAction} className={styles.ctaBanner}>
+            <input type="hidden" name="path" value={scan.path} />
+            <span className={styles.ctaText}>
+              <SparklesIcon size={18} />
+              Improve your score! Fix the issues above to increase your production readiness.
+            </span>
+            <button type="submit" className={styles.rescanBtn}>
+              Rescan Repository <RefreshIcon size={15} />
+            </button>
+          </form>
+        )}
 
-      {scan.status === "failed" && (
-        <p style={{ color: "#dc2626", marginBottom: "1.5rem" }}>
-          Scan failed{scan.errorMessage ? `: ${scan.errorMessage}` : "."}
-        </p>
-      )}
-
-      {scan.status === "completed" && (
-        <>
-          <h2 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>AI Assessment</h2>
-          {scan.aiNarrative ? (
-            <p
-              style={{
-                background: "#f8f8f8",
-                border: "1px solid #eee",
-                borderRadius: 8,
-                padding: "0.9rem 1.1rem",
-                lineHeight: 1.5,
-                marginBottom: "2rem",
-              }}
-            >
-              {scan.aiNarrative}
-            </p>
-          ) : (
-            <p style={{ color: "#888", fontSize: "0.9rem", marginBottom: "2rem" }}>
-              No AI narrative available for this scan (no AI provider configured, or
-              generation failed). The score and issues above are unaffected — they're
-              computed deterministically by the rule engine.
-            </p>
-          )}
-        </>
-      )}
-
-      {scan.categoryScores.length > 0 && (
-        <>
-          <h2 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>Category Scores</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem", marginBottom: "2rem" }}>
-            {scan.categoryScores.map((c) => (
-              <div
-                key={c.id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  padding: "0.5rem 0.75rem",
-                  border: "1px solid #eee",
-                  borderRadius: 6,
-                  fontSize: "0.9rem",
-                }}
-              >
-                <span style={{ textTransform: "capitalize" }}>{c.category}</span>
-                <span style={{ fontWeight: 600 }}>{c.score}%</span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      <h2 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>
-        Issues {scan.issues.length > 0 ? `(${scan.issues.length})` : ""}
-      </h2>
-
-      {scan.issues.length === 0 && !isPending && (
-        <p style={{ color: "#16a34a" }}>No issues found.</p>
-      )}
-
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-        {scan.issues.map((issue) => (
-          <div key={issue.id} style={{ border: "1px solid #eee", borderRadius: 8, padding: "0.75rem 1rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontWeight: 600 }}>
-                {issue.ruleId} — {issue.message}
-              </span>
-              <span
-                style={{
-                  fontSize: "0.75rem",
-                  padding: "0.15rem 0.5rem",
-                  borderRadius: 999,
-                  background: severityColor[issue.severity] ?? "#666",
-                  color: "#fff",
-                }}
-              >
-                {issue.severity}
-              </span>
-            </div>
-            <p style={{ color: "#555", fontSize: "0.9rem", margin: "0.4rem 0 0" }}>
-              {issue.recommendation}
-            </p>
-          </div>
-        ))}
+        {error && <p className={styles.errorText}>{error}</p>}
       </div>
-
-      {error && (
-        <p style={{ color: "#dc2626", marginTop: "1rem" }}>
-          {error}
-        </p>
-      )}
     </main>
-    </>
   );
 }

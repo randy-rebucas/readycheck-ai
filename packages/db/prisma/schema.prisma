@@ -70,3 +70,46 @@ model CategoryScore {
   @@index([scanId])
   @@unique([scanId, category])
 }
+
+model User {
+  id           String   @id @default(uuid())
+  email        String?  @unique
+  /// True when the email came from an OAuth provider that verified it.
+  /// Credentials signups never prove ownership, so OAuth logins must not
+  /// auto-link to users whose email is unverified.
+  emailVerified Boolean @default(false)
+  /// bcrypt hash; null for OAuth-only users.
+  passwordHash String?
+  name         String?
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+
+  accounts    Account[]
+  resetTokens PasswordResetToken[]
+}
+
+/// Single-use password reset tokens. Only the SHA-256 hash is stored, so a
+/// database leak doesn't yield usable reset links.
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// Links a User to an external OAuth identity (GitHub, Google, ...).
+model Account {
+  id                String   @id @default(uuid())
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String
+  provider          String
+  providerAccountId String
+  createdAt         DateTime @default(now())
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}

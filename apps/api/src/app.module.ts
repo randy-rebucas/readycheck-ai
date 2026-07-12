@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { AuthModule } from "./auth/auth.module";
 import { HealthController } from "./health.controller";
 import { ScansController } from "./scans.controller";
 
@@ -13,6 +14,7 @@ import { ScansController } from "./scans.controller";
         limit: 60,
       },
     ]),
+    AuthModule,
   ],
   controllers: [HealthController, ScansController],
   providers: [

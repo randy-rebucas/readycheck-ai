@@ -6,7 +6,7 @@ import { getScanQueue } from "@readycheck/queue";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.enableCors();
+  app.enableCors({ origin: process.env.DASHBOARD_URL ?? "http://localhost:3000" });
   app.enableShutdownHooks();
 
   const port = process.env.PORT ?? 3001;

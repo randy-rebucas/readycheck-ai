@@ -74,6 +74,16 @@ Dashboard: http://localhost:3000. API: http://localhost:3001.
 
 ## Environment variables
 
+Copy-paste starting points: [`apps/api/.env.example`](apps/api/.env.example),
+[`apps/worker/.env.example`](apps/worker/.env.example), and
+[`apps/dashboard/.env.local.example`](apps/dashboard/.env.local.example) (copy the
+dashboard one to `.env.local`, which Next.js loads automatically). **apps/api and
+apps/worker do not auto-load `.env`** — either export the values in your shell,
+pass `node --env-file=apps/api/.env ...` / `node --env-file=apps/worker/.env ...`,
+or set them in `docker-compose.yml` (already wired for `docker-compose up`).
+`packages/db/.env` is the one file Prisma's CLI loads automatically, for
+`DATABASE_URL` only.
+
 | Variable | Used by | Purpose |
 |---|---|---|
 | `DATABASE_URL` | api, worker, db migrations | Postgres connection string |
@@ -83,6 +93,13 @@ Dashboard: http://localhost:3000. API: http://localhost:3001.
 | `ANTHROPIC_API_KEY` | worker | Enables AI narrative generation (Claude). Unset = narratives are skipped gracefully; score/issues are unaffected. |
 | `AI_PROVIDER`, `AI_MODEL` | worker | Override the AI provider/model (defaults: `anthropic` / `claude-sonnet-5`) |
 | `PORT` | api | API listen port (default 3001) |
+| `AUTH_JWT_SECRET` | api, dashboard | Signs/verifies session tokens. **Must be set to the same value on both apps.** Unset = insecure dev default in development; both apps refuse to start in production. Note: logout clears the cookie but JWTs aren't revocable — a leaked token stays valid until its 30-day expiry. |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | api | GitHub OAuth App credentials. Unset = "Continue with GitHub" returns 503. Callback URL to register: `<API_URL>/auth/github/callback`. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | api | Google OAuth Client credentials. Unset = "Continue with Google" returns 503. Callback URL to register: `<API_URL>/auth/google/callback`. |
+| `API_URL` | api | The API's own public URL, used to build the OAuth callback URLs above (default `http://localhost:3001`) |
+| `DASHBOARD_URL` | api | The dashboard's origin; API redirects here after OAuth and restricts CORS to it (default `http://localhost:3000`) |
+| `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_DASHBOARD_URL` | dashboard | Public (browser-reachable) versions of the two URLs above, used by `/api/auth/start` to build the OAuth kickoff redirect (the browser follows it, so the internal docker hostname won't work here) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_SECURE` | api | Outgoing email for password reset links. Unset `SMTP_HOST` = emails are skipped and the reset link is logged to the API console instead (local dev only). `SMTP_PORT` defaults to 587; `SMTP_SECURE=true` (or port 465) enables implicit TLS. |
 
 ## Testing
 
