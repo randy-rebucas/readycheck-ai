@@ -53,13 +53,13 @@ export default function ScanDetailClient({ initialScan }: ScanDetailClientProps)
 
   const progressText = useMemo(() => {
     if (scan.progress) {
-      return progressLabels[scan.progress] ?? String(scan.progress);
+      return `Mission: ${progressLabels[scan.progress] ?? String(scan.progress)}`;
     }
     if (scan.status === "queued") {
-      return "Waiting to start";
+      return "Mission queued";
     }
     if (scan.status === "active") {
-      return "Starting scan";
+      return "Mission in progress";
     }
     return null;
   }, [scan.progress, scan.status]);
@@ -69,8 +69,8 @@ export default function ScanDetailClient({ initialScan }: ScanDetailClientProps)
       const index = progressStages.indexOf(scan.progress as (typeof progressStages)[number]);
       return index === -1 ? 100 : Math.round(((index + 1) / progressStages.length) * 100);
     }
-    if (scan.status === "active") return 30;
-    if (scan.status === "queued") return 10;
+    if (scan.status === "active") return 28;
+    if (scan.status === "queued") return 12;
     return 0;
   }, [scan.progress, scan.status]);
 
@@ -78,8 +78,8 @@ export default function ScanDetailClient({ initialScan }: ScanDetailClientProps)
     if (scan.progress) {
       return progressStages.indexOf(scan.progress as (typeof progressStages)[number]);
     }
-    if (scan.status === "active") return 1;
     if (scan.status === "queued") return 0;
+    if (scan.status === "active") return 1;
     return -1;
   }, [scan.progress, scan.status]);
 
@@ -90,7 +90,7 @@ export default function ScanDetailClient({ initialScan }: ScanDetailClientProps)
       return undefined;
     }
 
-    const interval = window.setInterval(() => setScanTick((value) => value + 1), 1000);
+    const interval = window.setInterval(() => setScanTick((value) => value + 1), 800);
     return () => {
       window.clearInterval(interval);
     };
@@ -138,10 +138,32 @@ export default function ScanDetailClient({ initialScan }: ScanDetailClientProps)
   }, [isPending, scan.id]);
 
   return (
-    <main style={{ padding: "3rem", maxWidth: 860, margin: "0 auto" }}>
-      <Link href="/" style={{ color: "#666", fontSize: "0.9rem" }}>
-        ← All scans
-      </Link>
+    <>
+      <style>{`
+        @keyframes pulseGlow {
+          0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(56, 189, 248, 0.16)); }
+          50% { transform: scale(1.04); filter: drop-shadow(0 0 22px rgba(56, 189, 248, 0.35)); }
+        }
+
+        @keyframes pulseShell {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.06); }
+        }
+
+        @keyframes bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+
+        @keyframes shimmerBar {
+          0% { background-position: 0% 50%; }
+          100% { background-position: 200% 50%; }
+        }
+      `}</style>
+      <main style={{ padding: "3rem", maxWidth: 860, margin: "0 auto" }}>
+        <Link href="/" style={{ color: "#666", fontSize: "0.9rem" }}>
+          ← All scans
+        </Link>
 
       <h1 style={{ fontFamily: "monospace", fontSize: "1.1rem", marginTop: "0.5rem" }}>
         {scan.path}
@@ -170,24 +192,73 @@ export default function ScanDetailClient({ initialScan }: ScanDetailClientProps)
       </div>
 
       {isPending && (
-        <div style={{ marginTop: "1rem", marginBottom: "1.5rem", color: "#444" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", fontSize: "0.95rem" }}>
-            <span style={{ fontWeight: 600 }}>{progressText}</span>
-            <span style={{ color: "#888" }}>{isRefreshing ? "Refreshing..." : "Auto-refreshing"}</span>
+        <div
+          style={{
+            marginTop: "1rem",
+            marginBottom: "1.5rem",
+            color: "#fff",
+            background: "linear-gradient(180deg, #111827 0%, #1f2937 100%)",
+            border: "1px solid rgba(148, 163, 184, 0.18)",
+            borderRadius: 20,
+            padding: "1rem",
+            boxShadow: "0 20px 50px rgba(15, 23, 42, 0.18)",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "center" }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.45rem" }}>
+                <span
+                  style={{
+                    width: 28,
+                    height: 28,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: 999,
+                    background: "rgba(59, 130, 246, 0.18)",
+                    color: "#93c5fd",
+                    fontSize: "1rem",
+                    animation: "pulseGlow 2s ease-in-out infinite",
+                  }}
+                >
+                  🔍
+                </span>
+                <span style={{ fontWeight: 700, fontSize: "0.95rem" }}>{progressText}</span>
+              </div>
+              <div style={{ color: "#94a3b8", fontSize: "0.88rem" }}>
+                {scanningFile ? `Inspecting ${scanningFile}` : "Exploring the repository"}
+              </div>
+            </div>
+            <div
+              style={{
+                minWidth: 96,
+                padding: "0.5rem 0.75rem",
+                borderRadius: 999,
+                background: "rgba(56, 189, 248, 0.16)",
+                color: "#38bdf8",
+                fontSize: "0.82rem",
+                textAlign: "center",
+                fontWeight: 700,
+              }}
+            >
+              {isRefreshing ? "Live" : "Active"}
+            </div>
           </div>
 
-          <div style={{ marginTop: "0.75rem", height: 8, borderRadius: 999, background: "#e5e7eb", overflow: "hidden" }}>
+          <div style={{ marginTop: "1rem", height: 10, borderRadius: 999, background: "rgba(148, 163, 184, 0.16)", overflow: "hidden" }}>
             <div
               style={{
                 width: `${progressValue}%`,
                 height: "100%",
-                background: "#2563eb",
-                transition: "width 0.2s ease",
+                background: "linear-gradient(90deg, #38bdf8, #60a5fa)",
+                transition: "width 0.35s ease",
+                boxShadow: "0 0 18px rgba(56, 189, 248, 0.28)",
+                animation: "shimmerBar 2.5s linear infinite",
               }}
             />
           </div>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.75rem" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "1rem" }}>
             {progressStages.map((stage, index) => {
               const stageLabel = progressLabels[stage];
               const isActive = index === currentStageIndex;
@@ -197,22 +268,57 @@ export default function ScanDetailClient({ initialScan }: ScanDetailClientProps)
                 <div
                   key={stage}
                   style={{
-                    padding: "0.35rem 0.65rem",
+                    padding: "0.45rem 0.75rem",
                     borderRadius: 999,
-                    background: isActive ? "#2563eb" : isComplete ? "#dbeafe" : "#f3f4f6",
-                    color: isActive ? "#fff" : isComplete ? "#1d4ed8" : "#6b7280",
-                    fontSize: "0.8rem",
+                    background: isActive ? "rgba(56, 189, 248, 0.22)" : isComplete ? "rgba(59, 130, 246, 0.12)" : "rgba(148, 163, 184, 0.12)",
+                    color: isActive ? "#cffafe" : isComplete ? "#7dd3fc" : "#94a3b8",
+                    fontSize: "0.76rem",
+                    fontWeight: isActive ? 700 : 500,
+                    boxShadow: isActive ? "0 0 22px rgba(56, 189, 248, 0.22)" : "none",
+                    transform: isActive ? "scale(1.04)" : "none",
+                    transition: "transform 0.25s ease, background-color 0.25s ease",
+                    animation: isActive ? "pulseShell 1.6s ease-in-out infinite" : undefined,
                   }}
                 >
-                  {stageLabel}
+                  {isComplete ? `✔ ${stageLabel}` : stageLabel}
                 </div>
               );
             })}
           </div>
 
           {scanningFile && (
-            <div style={{ marginTop: "0.75rem", fontSize: "0.9rem", color: "#555" }}>
-              Scanning <strong>{scanningFile}</strong>
+            <div
+              style={{
+                marginTop: "1.1rem",
+                padding: "0.85rem 1rem",
+                borderRadius: 16,
+                background: "rgba(255, 255, 255, 0.06)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.75rem",
+              }}
+            >
+              <span
+                style={{
+                  width: 34,
+                  height: 34,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 999,
+                  background: "rgba(255, 255, 255, 0.1)",
+                  color: "#a5b4fc",
+                  fontSize: "1.1rem",
+                  animation: "bounce 1.2s ease-in-out infinite",
+                }}
+              >
+                🔎
+              </span>
+              <div>
+                <div style={{ fontSize: "0.88rem", color: "#e2e8f0" }}>Active scan target</div>
+                <div style={{ fontWeight: 700, color: "#fff" }}>{scanningFile}</div>
+              </div>
             </div>
           )}
         </div>
@@ -325,5 +431,6 @@ export default function ScanDetailClient({ initialScan }: ScanDetailClientProps)
         </p>
       )}
     </main>
+    </>
   );
 }
