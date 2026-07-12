@@ -22,6 +22,7 @@ services:
     environment:
       DATABASE_URL: postgres://readycheck:readycheck@postgres:5432/readycheck
       REDIS_URL: redis://redis:6379
+      READYCHECK_API_KEY: ${READYCHECK_API_KEY:-}
       PORT: 3001
     ports:
       - "3001:3001"
@@ -36,6 +37,7 @@ services:
     environment:
       DATABASE_URL: postgres://readycheck:readycheck@postgres:5432/readycheck
       REDIS_URL: redis://redis:6379
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on:
       - postgres
       - redis
@@ -45,7 +47,8 @@ services:
       context: .
       dockerfile: apps/dashboard/Dockerfile
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001
+      READYCHECK_API_URL: http://api:3001
+      READYCHECK_API_KEY: ${READYCHECK_API_KEY:-}
     ports:
       - "3000:3000"
     depends_on:

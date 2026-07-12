@@ -7,9 +7,11 @@ import {
   Param,
   Post,
   Query,
+  UseGuards,
 } from "@nestjs/common";
 import { getScanQueue } from "@readycheck/queue";
 import { getPrismaClient } from "@readycheck/db";
+import { ApiKeyGuard } from "./api-key.guard";
 
 interface TriggerScanDto {
   path?: string;
@@ -20,6 +22,7 @@ const prisma = getPrismaClient();
 const GIT_URL_PATTERN = /^(https?:\/\/|git@)\S+\.git$|^https?:\/\/(github|gitlab|bitbucket)\.com\/\S+$/i;
 
 @Controller("scans")
+@UseGuards(ApiKeyGuard)
 export class ScansController {
   @Post()
   async trigger(@Body() dto: TriggerScanDto) {
