@@ -110,11 +110,18 @@ worker.on("completed", (job) => {
 
 worker.on("failed", async (job, err) => {
   console.error(`[worker] scan ${job?.data.scanId} failed (job ${job?.id}):`, err.message);
-  if (job) {
+  if (!job) return;
+
+  // Best-effort: the Scan row may already be gone (e.g. manually deleted while
+  // its job was still queued). A failure here must not crash the process --
+  // an uncaught error in this handler would take down the whole worker.
+  try {
     await prisma.scan.update({
       where: { id: job.data.scanId },
       data: { status: "failed", errorMessage: err.message },
     });
+  } catch (updateErr) {
+    console.error(`[worker] could not record failure for scan ${job.data.scanId}:`, updateErr);
   }
 });
 
@@ -124,3 +131,26 @@ console.log(
     ? `AI narrative generation enabled (provider: ${aiProvider.name})`
     : "AI narrative generation disabled (no provider configured)"
 );
+
+let shuttingDown = false;
+
+async function shutdown(signal: string) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+
+  console.log(`[worker] received ${signal}, draining active jobs before exit...`);
+  try {
+    // worker.close() stops pulling new jobs and waits for in-flight jobs to
+    // finish (respecting BullMQ's lock renewal) instead of killing them mid-write.
+    await worker.close();
+    await prisma.$disconnect();
+    console.log("[worker] shutdown complete");
+    process.exit(0);
+  } catch (err) {
+    console.error("[worker] error during shutdown:", err);
+    process.exit(1);
+  }
+}
+
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));
