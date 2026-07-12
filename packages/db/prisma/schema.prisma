@@ -37,6 +37,7 @@ model Scan {
   verdict      String?
   facts        Json?
   aiNarrative  String?
+  progress     String?
   errorMessage String?
   createdAt    DateTime       @default(now())
   completedAt  DateTime?

@@ -39,6 +39,7 @@ export interface Scan {
 export interface ScanDetail extends Scan {
   facts: Record<string, unknown> | null;
   aiNarrative: string | null;
+  progress?: string | null;
   issues: Issue[];
   categoryScores: CategoryScore[];
 }

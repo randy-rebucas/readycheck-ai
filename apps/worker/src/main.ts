@@ -30,6 +30,7 @@ async function processScan(job: Job<ScanJobData>) {
   try {
     if (repoUrl) {
       await job.updateProgress({ stage: "cloning" });
+      await prisma.scan.update({ where: { id: scanId }, data: { progress: "cloning" } });
       clonedDir = await cloneRepo(repoUrl);
       scanPath = clonedDir;
     }
@@ -39,25 +40,31 @@ async function processScan(job: Job<ScanJobData>) {
     }
 
     await job.updateProgress({ stage: "scanning" });
+    await prisma.scan.update({ where: { id: scanId }, data: { progress: "scanning" } });
     const facts = scanRepository(scanPath);
 
     await job.updateProgress({ stage: "evaluating_rules" });
+    await prisma.scan.update({ where: { id: scanId }, data: { progress: "evaluating_rules" } });
     const coreIssues = evaluateRules(coreRules, facts);
 
     await job.updateProgress({ stage: "evaluating_plugins" });
+    await prisma.scan.update({ where: { id: scanId }, data: { progress: "evaluating_plugins" } });
     const pluginIssues = evaluatePlugins(scanPath, facts);
     const issues = [...coreIssues, ...pluginIssues];
 
     await job.updateProgress({ stage: "scoring" });
+    await prisma.scan.update({ where: { id: scanId }, data: { progress: "scoring" } });
     const result = scoreIssues(issues);
 
     await job.updateProgress({ stage: "ai_narrative" });
+    await prisma.scan.update({ where: { id: scanId }, data: { progress: "ai_narrative" } });
     const aiNarrative = await generateNarrative(
       { facts, issues, categoryScores: result.categoryScores, overallScore: result.overallScore, verdict: result.verdict },
       aiProvider
     );
 
     await job.updateProgress({ stage: "persisting" });
+    await prisma.scan.update({ where: { id: scanId }, data: { progress: "persisting" } });
     await prisma.$transaction([
       prisma.issue.createMany({
         data: issues.map((issue) => ({
@@ -85,6 +92,7 @@ async function processScan(job: Job<ScanJobData>) {
           verdict: result.verdict,
           facts: facts as object,
           aiNarrative,
+          progress: "done",
           completedAt: new Date(),
         },
       }),
