@@ -3,16 +3,55 @@ import { QUEUE_NAMES, getRedisConnection, type ScanJobData } from "@readycheck/q
 import { scanRepository } from "@readycheck/scanner";
 import { coreRules, evaluateRules } from "@readycheck/rules";
 import { scoreIssues } from "@readycheck/scoring";
+import { getPrismaClient } from "@readycheck/db";
+
+const prisma = getPrismaClient();
 
 async function processScan(job: Job<ScanJobData>) {
+  const { scanId, path } = job.data;
+
+  await prisma.scan.update({ where: { id: scanId }, data: { status: "active" } });
+
   await job.updateProgress({ stage: "scanning" });
-  const facts = scanRepository(job.data.path);
+  const facts = scanRepository(path);
 
   await job.updateProgress({ stage: "evaluating_rules" });
   const issues = evaluateRules(coreRules, facts);
 
   await job.updateProgress({ stage: "scoring" });
   const result = scoreIssues(issues);
+
+  await job.updateProgress({ stage: "persisting" });
+  await prisma.$transaction([
+    prisma.issue.createMany({
+      data: issues.map((issue) => ({
+        scanId,
+        ruleId: issue.ruleId,
+        category: issue.category,
+        severity: issue.severity,
+        message: issue.message,
+        recommendation: issue.recommendation,
+        estimatedEffort: issue.estimatedEffort,
+      })),
+    }),
+    prisma.categoryScore.createMany({
+      data: result.categoryScores.map((c) => ({
+        scanId,
+        category: c.category,
+        score: c.score,
+      })),
+    }),
+    prisma.scan.update({
+      where: { id: scanId },
+      data: {
+        status: "completed",
+        overallScore: result.overallScore,
+        verdict: result.verdict,
+        facts: facts as object,
+        completedAt: new Date(),
+      },
+    }),
+  ]);
 
   await job.updateProgress({ stage: "done" });
   return { facts, issues, ...result };
@@ -27,8 +66,11 @@ worker.on("completed", (job) => {
   console.log(`[worker] scan ${job.data.scanId} completed (job ${job.id})`);
 });
 
-worker.on("failed", (job, err) => {
+worker.on("failed", async (job, err) => {
   console.error(`[worker] scan ${job?.data.scanId} failed (job ${job?.id}):`, err.message);
+  if (job) {
+    await prisma.scan.update({ where: { id: job.data.scanId }, data: { status: "failed" } });
+  }
 });
 
 console.log("ReadyCheck worker listening on queue:", QUEUE_NAMES.SCAN);

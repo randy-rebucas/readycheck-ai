@@ -1,44 +1,38 @@
 import { Body, Controller, Get, NotFoundException, Param, Post } from "@nestjs/common";
-import { randomUUID } from "node:crypto";
 import { getScanQueue } from "@readycheck/queue";
+import { getPrismaClient } from "@readycheck/db";
 
 interface TriggerScanDto {
   path: string;
 }
 
+const prisma = getPrismaClient();
+
 @Controller("scans")
 export class ScansController {
   @Post()
   async trigger(@Body() dto: TriggerScanDto) {
-    const scanId = randomUUID();
+    const scan = await prisma.scan.create({
+      data: { path: dto.path, status: "queued" },
+    });
+
     const queue = getScanQueue();
+    await queue.add("run-scan", { scanId: scan.id, path: dto.path }, { jobId: scan.id });
 
-    await queue.add(
-      "run-scan",
-      { scanId, path: dto.path },
-      { jobId: scanId }
-    );
-
-    return { scanId, status: "queued" };
+    return { scanId: scan.id, status: scan.status };
   }
 
   @Get(":id")
   async getStatus(@Param("id") id: string) {
-    const queue = getScanQueue();
-    const job = await queue.getJob(id);
+    const scan = await prisma.scan.findUnique({
+      where: { id },
+      include: { issues: true, categoryScores: true },
+    });
 
-    if (!job) {
+    if (!scan) {
       throw new NotFoundException(`No scan found with id ${id}`);
     }
 
-    const state = await job.getState();
-    const result = job.returnvalue ?? null;
-
-    return {
-      scanId: id,
-      status: state,
-      progress: job.progress,
-      result,
-    };
+    return scan;
   }
 }

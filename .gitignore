@@ -3,6 +3,7 @@ dist/
 .next/
 .turbo/
 *.tsbuildinfo
+packages/db/generated/
 *.log
 .env
 .env.*
