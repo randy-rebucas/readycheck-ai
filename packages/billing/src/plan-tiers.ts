@@ -44,8 +44,13 @@ export interface SubscriptionLike {
  * FREE (no need to backfill one row per existing user). A subscription past
  * its cancelled period end also falls back to FREE, even though the local
  * `plan` field may still say PRO until the next webhook/read reconciles it.
+ *
+ * Outside production, every user is treated as ENTERPRISE so plan limits
+ * don't get in the way of local development/testing -- there's no PayPal
+ * sandbox subscription to set up just to try Pro-gated features.
  */
 export function getEffectivePlan(subscription: SubscriptionLike | null | undefined): PlanTier {
+  if (process.env.NODE_ENV !== "production") return "ENTERPRISE";
   if (!subscription) return "FREE";
   if (subscription.status !== "ACTIVE") return "FREE";
   if (subscription.cancelAtPeriodEnd && subscription.currentPeriodEnd) {

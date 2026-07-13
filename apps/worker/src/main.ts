@@ -174,18 +174,27 @@ worker.on("failed", async (job, err) => {
   // an uncaught error in this handler would take down the whole worker.
   try {
     const { scanId, path, repoUrl } = job.data;
-    await prisma.scan.update({
-      where: { id: scanId },
+    // checkCancelled() only runs between stages, not during the single
+    // blocking cloneRepo() call -- so a cancel requested mid-clone can race
+    // with the clone itself erroring out (network drop, disk full, ...)
+    // instead of throwing ScanCancelledError. updateMany with a status guard
+    // (instead of update) makes sure that race doesn't clobber an
+    // already-"cancelled" row back to "failed", or fire a spurious
+    // "scan failed" notification for a scan the user intentionally cancelled.
+    const { count } = await prisma.scan.updateMany({
+      where: { id: scanId, status: { not: "cancelled" } },
       data: { status: "failed", errorMessage: err.message },
     });
-    await prisma.notification.create({
-      data: {
-        type: "scan_failed",
-        title: `Scan failed: ${scanLabel(repoUrl ?? path ?? scanId)}`,
-        body: err.message,
-        scanId,
-      },
-    });
+    if (count > 0) {
+      await prisma.notification.create({
+        data: {
+          type: "scan_failed",
+          title: `Scan failed: ${scanLabel(repoUrl ?? path ?? scanId)}`,
+          body: err.message,
+          scanId,
+        },
+      });
+    }
   } catch (updateErr) {
     console.error(`[worker] could not record failure for scan ${job.data.scanId}:`, updateErr);
   }

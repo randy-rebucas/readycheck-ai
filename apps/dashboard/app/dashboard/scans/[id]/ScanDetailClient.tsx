@@ -28,7 +28,6 @@ import {
   LockIcon,
   PlayCircleIcon,
   RefreshIcon,
-  ScanIcon,
   SearchIcon,
   ShieldIcon,
   SparklesIcon,
@@ -58,14 +57,16 @@ const progressStages = [
   "done",
 ] as const;
 
-const scanningFiles = [
-  "package.json",
-  "src/index.ts",
-  "README.md",
-  "tsconfig.json",
-  "src/app/page.tsx",
-  "src/lib/api.ts",
-];
+const progressDescriptions: Record<string, string> = {
+  cloning: "Fetching the repository",
+  scanning: "Detecting languages, frameworks, and tooling",
+  evaluating_rules: "Running the core rule engine",
+  evaluating_plugins: "Running framework-specific checks",
+  scoring: "Computing category scores",
+  ai_narrative: "Generating the AI assessment",
+  persisting: "Saving results",
+  done: "Wrapping up",
+};
 
 type IconComponent = (props: { size?: number }) => React.ReactNode;
 
@@ -227,24 +228,11 @@ export default function ScanDetailClient({ initialScan, user, plan }: ScanDetail
     return -1;
   }, [scan.progress, scan.status]);
 
-  const [scanTick, setScanTick] = useState(0);
-
-  useEffect(() => {
-    if (!isPending) {
-      return undefined;
-    }
-
-    const interval = window.setInterval(() => setScanTick((value) => value + 1), 800);
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [isPending]);
-
-  const scanningFile = useMemo(() => {
+  const stageDescription = useMemo(() => {
     if (!isPending) return null;
-    const index = scanTick % scanningFiles.length;
-    return scanningFiles[index];
-  }, [isPending, scanTick]);
+    if (scan.progress) return progressDescriptions[scan.progress] ?? null;
+    return "Exploring the repository";
+  }, [isPending, scan.progress]);
 
   useEffect(() => {
     if (!isPending) return undefined;
@@ -381,7 +369,7 @@ export default function ScanDetailClient({ initialScan, user, plan }: ScanDetail
                       {progressText}
                     </div>
                     <div className={styles.progressSub}>
-                      {scanningFile ? `Inspecting ${scanningFile}` : "Exploring the repository"}
+                      {stageDescription ?? "Exploring the repository"}
                     </div>
                   </div>
                   <span className={styles.progressHeadRight}>
@@ -425,18 +413,6 @@ export default function ScanDetailClient({ initialScan, user, plan }: ScanDetail
                   })}
                 </div>
 
-                {scanningFile && (
-                  <div className={styles.scanTarget}>
-                    <span className={styles.scanTargetIcon}>
-                      <ScanIcon size={16} />
-                    </span>
-                    <span>
-                      <span className={styles.scanTargetLabel}>Active scan target</span>
-                      <br />
-                      <span className={styles.scanTargetFile}>{scanningFile}</span>
-                    </span>
-                  </div>
-                )}
               </div>
             )}
 
