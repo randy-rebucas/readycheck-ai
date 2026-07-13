@@ -397,9 +397,6 @@ export default async function LandingPage() {
           <a href="#features">Features</a>
           <a href="#how-it-works">How It Works</a>
           <a href="#pricing">Pricing</a>
-          <a href="#">Docs</a>
-          <a href="#">Blog</a>
-          <a href="#">Enterprise</a>
         </div>
         <div className={styles.navRight}>
           {user ? (
@@ -422,10 +419,6 @@ export default async function LandingPage() {
 
       <section className={styles.hero}>
         <div>
-          <span className={styles.badge}>
-            <SparkleIcon size={13} />
-            AI-Powered Production Readiness Platform
-          </span>
           <h1 className={styles.heroTitle}>
             Ship with
             <br />
@@ -648,7 +641,7 @@ export default async function LandingPage() {
                 <LinkedInIcon size={14} />
               </a>
               <a href="#" className={styles.socialBtn} aria-label="YouTube">
-                <YouTubeIcon size={15} />
+                <YouTubeIcon size={14} />
               </a>
               <a href="#" className={styles.socialBtn} aria-label="GitHub">
                 <GitHubIcon size={14} />
@@ -657,33 +650,33 @@ export default async function LandingPage() {
           </div>
           <div className={styles.footerCol}>
             <h4>Product</h4>
-            <a href="#features">Features</a>
-            <a href="#pricing">Pricing</a>
-            <a href="#">Docs</a>
-            <a href="#">Changelog</a>
-            <a href="#">API</a>
+            <span>Features</span>
+            <span>Pricing</span>
+            <span>Docs</span>
+            <span>Changelog</span>
+            <span>API</span>
           </div>
           <div className={styles.footerCol}>
             <h4>Resources</h4>
-            <a href="#">Blog</a>
-            <a href="#">Guides</a>
-            <a href="#">Security</a>
-            <a href="#">Status</a>
-            <a href="#">Help Center</a>
+            <span>Blog</span>
+            <span>Guides</span>
+            <span>Security</span>
+            <span>Status</span>
+            <span>Help Center</span>
           </div>
           <div className={styles.footerCol}>
             <h4>Company</h4>
-            <a href="#">About</a>
-            <a href="#">Careers</a>
-            <a href="#">Contact</a>
-            <a href="#">Partners</a>
+            <span>About</span>
+            <span>Careers</span>
+            <span>Contact</span>
+            <span>Partners</span>
           </div>
           <div className={styles.footerCol}>
             <h4>Legal</h4>
-            <a href="#">Privacy Policy</a>
-            <a href="#">Terms of Service</a>
-            <a href="#">Cookie Policy</a>
-            <a href="#">Security</a>
+            <span>Privacy Policy</span>
+            <span>Terms of Service</span>
+            <span>Cookie Policy</span>
+            <span>Security</span>
           </div>
           <div className={styles.newsCard}>
             <h4>Stay in the loop</h4>
