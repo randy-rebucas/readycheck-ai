@@ -7,3 +7,11 @@ data:
   REDIS_URL: "redis://redis:6379"
   READYCHECK_API_URL: "http://api:3001"
   PORT: "3001"
+  PAYPAL_ENV: "sandbox"
+  # Not secret -- the PayPal JS SDK/Buttons component needs these client-side.
+  # NOTE: Next.js inlines NEXT_PUBLIC_* vars at *build* time, not pod-start time --
+  # setting these here has no effect unless the dashboard image is rebuilt with
+  # them present (e.g. as Docker build ARGs). See DEPLOYMENT.md's documented gap
+  # around NEXT_PUBLIC_* vars not being wired through to the k8s manifests.
+  NEXT_PUBLIC_PAYPAL_CLIENT_ID: "CHANGE_ME"
+  NEXT_PUBLIC_PAYPAL_PRO_PLAN_ID: "CHANGE_ME"

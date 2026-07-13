@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@readycheck/billing": "workspace:*",
     "jose": "^6.2.3",
     "next": "^15.1.0",
     "react": "^19.0.0",

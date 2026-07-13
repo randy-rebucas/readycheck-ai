@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { listScans, type Scan } from "../../../lib/api";
 import { getCurrentUser } from "../../../lib/get-current-user";
 import AppHeader from "../../AppHeader";
@@ -31,18 +32,19 @@ export default async function ScansPage({ searchParams }: ScansPageProps) {
   const activeFilter =
     STATUS_FILTERS.find((f) => f.key === statusParam)?.key ?? "all";
 
+  // Guaranteed by middleware.ts (which gates /dashboard), but re-checked here
+  // since this page can't assume the middleware ran (e.g. direct RSC render).
+  const user = await getCurrentUser();
+  if (!user) redirect("/login?next=/dashboard/scans");
+
   let scans: Scan[] = [];
   let apiError: string | null = null;
 
   try {
-    scans = await listScans();
+    scans = await listScans(user.id);
   } catch (err) {
     apiError = err instanceof Error ? err.message : "Failed to reach the ReadyCheck API";
   }
-
-  // Guaranteed by middleware.ts (which gates /dashboard), but re-checked here
-  // since this page can't assume the middleware ran (e.g. direct RSC render).
-  const user = await getCurrentUser();
 
   const filteredScans =
     activeFilter === "all" ? scans : scans.filter((scan) => scan.status === activeFilter);

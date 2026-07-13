@@ -11,6 +11,7 @@ export const config = {
     "/api/preferences",
     "/api/notifications",
     "/api/notifications/:path*",
+    "/api/billing/:path*",
   ],
 };
 

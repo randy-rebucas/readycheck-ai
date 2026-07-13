@@ -44,8 +44,11 @@ export interface ScanDetail extends Scan {
   categoryScores: CategoryScore[];
 }
 
-export async function listScans(): Promise<Scan[]> {
-  const res = await fetch(`${API_URL}/scans`, { cache: "no-store", headers: authHeaders() });
+export async function listScans(userId: string): Promise<Scan[]> {
+  const res = await fetch(`${API_URL}/scans?userId=${encodeURIComponent(userId)}`, {
+    cache: "no-store",
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error(`Failed to list scans: ${res.status}`);
   return res.json();
 }
@@ -56,11 +59,11 @@ export async function getScan(id: string): Promise<ScanDetail> {
   return res.json();
 }
 
-export async function fetchReport(id: string, format: string): Promise<Response> {
-  const res = await fetch(`${API_URL}/scans/${id}/report?format=${format}`, {
-    cache: "no-store",
-    headers: authHeaders(),
-  });
+export async function fetchReport(id: string, format: string, userId: string): Promise<Response> {
+  const res = await fetch(
+    `${API_URL}/scans/${id}/report?format=${format}&userId=${encodeURIComponent(userId)}`,
+    { cache: "no-store", headers: authHeaders() }
+  );
   if (!res.ok) throw new Error(`Failed to fetch report: ${res.status}`);
   return res;
 }
@@ -138,14 +141,20 @@ export async function markAllNotificationsRead(userId: string): Promise<void> {
   if (!res.ok) throw new Error(`Failed to mark all notifications read: ${res.status}`);
 }
 
-export async function triggerScan(path: string): Promise<{ scanId: string; status: string }> {
+export async function triggerScan(
+  path: string,
+  userId: string
+): Promise<{ scanId: string; status: string }> {
   const res = await fetch(`${API_URL}/scans`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ path }),
+    body: JSON.stringify({ path, userId }),
     cache: "no-store",
   });
-  if (!res.ok) throw new Error(`Failed to trigger scan: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message ?? `Failed to trigger scan: ${res.status}`);
+  }
   return res.json();
 }
 
@@ -156,5 +165,50 @@ export async function cancelScan(id: string): Promise<{ scanId: string; status: 
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`Failed to cancel scan: ${res.status}`);
+  return res.json();
+}
+
+export interface PlanSummary {
+  plan: "FREE" | "PRO" | "ENTERPRISE";
+  status: string;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  usage: {
+    repositories: number;
+    repositoryLimit: number;
+  };
+}
+
+export async function getBillingPlan(userId: string): Promise<PlanSummary> {
+  const res = await fetch(`${API_URL}/billing/plan?userId=${encodeURIComponent(userId)}`, {
+    cache: "no-store",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`Failed to load billing plan: ${res.status}`);
+  return res.json();
+}
+
+export async function confirmSubscription(
+  userId: string,
+  paypalSubscriptionId: string
+): Promise<PlanSummary> {
+  const res = await fetch(`${API_URL}/billing/subscribe`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ userId, paypalSubscriptionId }),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Failed to confirm subscription: ${res.status}`);
+  return res.json();
+}
+
+export async function cancelSubscription(userId: string): Promise<PlanSummary> {
+  const res = await fetch(`${API_URL}/billing/cancel`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ userId }),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Failed to cancel subscription: ${res.status}`);
   return res.json();
 }

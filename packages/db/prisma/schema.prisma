@@ -28,6 +28,12 @@ enum Severity {
   low
 }
 
+enum PlanTier {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
 model Scan {
   id           String         @id @default(uuid())
   /// Local filesystem path or git clone URL, depending on sourceType.
@@ -43,9 +49,17 @@ model Scan {
   createdAt    DateTime       @default(now())
   completedAt  DateTime?
 
+  /// Owning user. Nullable because scans created before multi-tenancy was
+  /// added have no owner and stay that way -- they simply stop appearing in
+  /// any per-user scan list.
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+
   issues         Issue[]
   categoryScores CategoryScore[]
   notifications  Notification[]
+
+  @@index([userId])
 }
 
 model Issue {
@@ -92,11 +106,34 @@ model User {
   accounts          Account[]
   resetTokens       PasswordResetToken[]
   notificationReads NotificationRead[]
+  scans             Scan[]
+  subscription      Subscription?
+}
+
+/// The user's plan. Absence of a row means FREE (no need to backfill one row
+/// per existing user -- see packages/billing's getEffectivePlan()).
+model Subscription {
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
+
+  plan   PlanTier @default(FREE)
+  /// "ACTIVE" | "CANCELLED" | "SUSPENDED" -- mirrors PayPal subscription status.
+  status String
+
+  paypalSubscriptionId String?   @unique
+  currentPeriodEnd     DateTime?
+  /// True once cancellation is requested; access stays at `plan` until
+  /// currentPeriodEnd, then getEffectivePlan() treats the user as FREE.
+  cancelAtPeriodEnd    Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 /// A scan-lifecycle (or, later, other) event surfaced in the notification
-/// bell. The app is single-tenant today (scans have no owner), so these are
-/// visible to every signed-in user; read state is tracked per user below.
+/// bell. Still visible to every signed-in user regardless of scan ownership;
+/// read state is tracked per user below.
 model Notification {
   id        String   @id @default(uuid())
   type      String

@@ -123,10 +123,11 @@ const SEVERITY_COLORS: Record<Issue["severity"], string> = {
 const SEVERITIES = ["critical", "high", "medium", "low"] as const;
 
 const DOWNLOAD_FORMATS = [
-  { format: "markdown", label: "Markdown", color: "#34d399", icon: FileTextIcon },
-  { format: "html", label: "HTML", color: "#38bdf8", icon: CodeIcon },
-  { format: "csv", label: "CSV", color: "#4ade80", icon: BarChartIcon },
-  { format: "json", label: "JSON", color: "#a78bfa", icon: BracesIcon },
+  { format: "markdown", label: "Markdown", color: "#34d399", icon: FileTextIcon, proOnly: false },
+  { format: "html", label: "HTML", color: "#38bdf8", icon: CodeIcon, proOnly: false },
+  { format: "csv", label: "CSV", color: "#4ade80", icon: BarChartIcon, proOnly: false },
+  { format: "json", label: "JSON", color: "#a78bfa", icon: BracesIcon, proOnly: false },
+  { format: "pdf", label: "PDF", color: "#f87171", icon: FileTextIcon, proOnly: true },
 ] as const;
 
 const VERDICT_COLORS: Record<string, string> = {
@@ -165,9 +166,10 @@ interface ScanDetailWithProgress extends ScanDetail {
 interface ScanDetailClientProps {
   initialScan: ScanDetailWithProgress;
   user: SessionUser | null;
+  plan: "FREE" | "PRO" | "ENTERPRISE";
 }
 
-export default function ScanDetailClient({ initialScan, user }: ScanDetailClientProps) {
+export default function ScanDetailClient({ initialScan, user, plan }: ScanDetailClientProps) {
   const [scan, setScan] = useState<ScanDetailWithProgress>(initialScan);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -441,17 +443,19 @@ export default function ScanDetailClient({ initialScan, user }: ScanDetailClient
             {scan.status === "completed" && (
               <div className={styles.downloadRow}>
                 <span>Download report:</span>
-                {DOWNLOAD_FORMATS.map(({ format, label, color, icon: Icon }) => (
-                  <a
-                    key={format}
-                    href={`/dashboard/scans/${scan.id}/report?format=${format}`}
-                    className={styles.dlBtn}
-                    style={{ color, borderColor: `${color}66` }}
-                  >
-                    <Icon size={13} />
-                    {label.toUpperCase()}
-                  </a>
-                ))}
+                {DOWNLOAD_FORMATS.filter((f) => !f.proOnly || plan !== "FREE").map(
+                  ({ format, label, color, icon: Icon }) => (
+                    <a
+                      key={format}
+                      href={`/dashboard/scans/${scan.id}/report?format=${format}`}
+                      className={styles.dlBtn}
+                      style={{ color, borderColor: `${color}66` }}
+                    >
+                      <Icon size={13} />
+                      {label.toUpperCase()}
+                    </a>
+                  )
+                )}
               </div>
             )}
           </div>

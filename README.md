@@ -8,7 +8,7 @@ This implements the MVP scan pipeline and dashboard from a larger 30-section pro
 
 ```
 apps/
-  api/         NestJS — REST API (POST /scans, GET /scans, GET /scans/:id, GET /scans/:id/report)
+  api/         NestJS — REST API (POST /scans, GET /scans, GET /scans/:id, GET /scans/:id/report, GET/POST /billing/*)
   worker/      BullMQ consumer — clone -> scan -> plugin rules -> score -> AI narrative -> persist
   dashboard/   Next.js — trigger scans, browse results, download reports
 
@@ -18,8 +18,9 @@ packages/
   plugins/     Framework-specific plugins (currently: Next.js)
   scoring/     Weighted category scoring -> overall score + verdict
   ai/          AI provider abstraction + context builder + narrative generation (best-effort)
-  reports/     Markdown/HTML/CSV/JSON report generators
-  db/          Prisma schema + client (Scan, Issue, CategoryScore)
+  reports/     Markdown/HTML/CSV/JSON/PDF report generators
+  db/          Prisma schema + client (Scan, Issue, CategoryScore, User, Subscription, ...)
+  billing/     Plan/tier limits + PayPal Subscriptions client
   queue/       Shared BullMQ job types + Redis connection helper
 ```
 
@@ -109,9 +110,12 @@ npx vitest run --workspace vitest.workspace.ts   # same tests, single runner
 ## Triggering a scan
 
 ```bash
+# userId must be a real User row's id (see packages/db's User model) -- scans
+# are owned per-user for plan limits (Free: 1 repository, 5 scans/24h) and
+# per-user listing.
 curl -X POST http://localhost:3001/scans \
   -H "Content-Type: application/json" \
-  -d '{"path": "https://github.com/octocat/Hello-World.git"}'
+  -d '{"path": "https://github.com/octocat/Hello-World.git", "userId": "<userId>"}'
 # -> {"scanId": "...", "status": "queued"}
 
 curl http://localhost:3001/scans/<scanId>
@@ -127,6 +131,6 @@ For Docker image builds, `docker-compose` (single-host), and Kubernetes
 
 ## What's implemented vs. what's still a gap
 
-Implemented: full async scan pipeline, Postgres persistence, git cloning, a framework plugin system (Next.js), AI narrative generation with graceful degradation, report export (MD/HTML/CSV/JSON), basic API key auth, rate limiting on scan triggering.
+Implemented: full async scan pipeline, Postgres persistence, git cloning, a framework plugin system (Next.js), AI narrative generation with graceful degradation, report export (MD/HTML/CSV/JSON/PDF), basic API key auth, rate limiting on scan triggering, per-user scan ownership with a Free/Pro/Enterprise subscription model (1-repository and daily-scan limits on Free, PDF export gated to Pro/Enterprise, PayPal Subscriptions checkout — see [DEPLOYMENT.md](DEPLOYMENT.md#paypal-billing-setup)).
 
-Not yet implemented: multi-tenant org/user model (all scans currently share one global list), GitHub App integration for private-repo cloning (OAuth login exists, but scan cloning only supports public unauthenticated git URLs), additional framework plugins beyond Next.js, PDF report export, Terraform IaC (Kubernetes manifests do exist — see [DEPLOYMENT.md](DEPLOYMENT.md) — but they have known gaps, documented there).
+Not yet implemented: multi-tenant *organization* model (plans are per-user, not per-team — no shared billing/seats across a company yet), GitHub App integration for private-repo cloning (OAuth login exists, but scan cloning only supports public unauthenticated git URLs), additional framework plugins beyond Next.js, Enterprise-tier features (SSO/SAML, custom rule policies, on-prem AI, audit logs — the plan tier exists in the data model, but these are sales-assisted/"Contact Us" only, not self-serve), Terraform IaC (Kubernetes manifests do exist — see [DEPLOYMENT.md](DEPLOYMENT.md) — but they have known gaps, documented there).

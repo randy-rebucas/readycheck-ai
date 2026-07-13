@@ -1,0 +1,100 @@
+# Render Blueprint -- https://render.com/docs/blueprint-spec
+# Provisions api + worker (built from the existing Dockerfiles) plus managed
+# Postgres and Redis. Create via Render dashboard: New -> Blueprint, pointed at
+# this repo. See DEPLOYMENT.md's "Vercel + Render deployment" section for the
+# full walkthrough, including running migrations and setting up the dashboard
+# on Vercel separately (this Blueprint does not deploy the dashboard).
+services:
+  - type: web
+    name: readycheck-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: readycheck-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: readycheck-redis
+          property: connectionString
+      - key: PORT
+        value: "3001"
+      # Secrets -- left blank here on purpose. Render prompts for these once
+      # at Blueprint creation, then stores them in the dashboard, not the repo.
+      - key: READYCHECK_API_KEY
+        sync: false
+      - key: AUTH_JWT_SECRET # must match the value set on the Vercel dashboard deploy
+        sync: false
+      - key: API_URL # this service's own public URL, for OAuth callback registration
+        sync: false
+      - key: DASHBOARD_URL # the Vercel dashboard's public URL
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: SMTP_SECURE
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: PAYPAL_PRO_PLAN_ID
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+
+  - type: worker
+    name: readycheck-worker
+    runtime: docker
+    dockerfilePath: ./apps/worker/Dockerfile
+    dockerContext: .
+    plan: starter
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: readycheck-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: readycheck-redis
+          property: connectionString
+      - key: ANTHROPIC_API_KEY # optional -- AI narratives are skipped gracefully if unset
+        sync: false
+      - key: AI_PROVIDER
+        sync: false
+      - key: AI_MODEL
+        sync: false
+
+  - type: redis
+    name: readycheck-redis
+    plan: starter
+    ipAllowList: [] # internal-only; api/worker reach it over Render's private network
+
+databases:
+  - name: readycheck-postgres
+    plan: starter
+    databaseName: readycheck
+    user: readycheck

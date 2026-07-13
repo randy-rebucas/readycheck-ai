@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { listScans, type Scan } from "../../lib/api";
 import { getCurrentUser } from "../../lib/get-current-user";
 import { triggerScanAction } from "../actions";
@@ -94,19 +95,26 @@ function HeroArt() {
   );
 }
 
-export default async function DashboardPage() {
+interface DashboardPageProps {
+  searchParams: Promise<{ scanError?: string }>;
+}
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+  // Guaranteed by middleware.ts (which gates /dashboard), but re-checked here
+  // since this page can't assume the middleware ran (e.g. direct RSC render).
+  const user = await getCurrentUser();
+  if (!user) redirect("/login?next=/dashboard");
+
+  const { scanError } = await searchParams;
+
   let scans: Scan[] = [];
   let apiError: string | null = null;
 
   try {
-    scans = await listScans();
+    scans = await listScans(user.id);
   } catch (err) {
     apiError = err instanceof Error ? err.message : "Failed to reach the ReadyCheck API";
   }
-
-  // Guaranteed by middleware.ts (which gates /dashboard), but re-checked here
-  // since this page can't assume the middleware ran (e.g. direct RSC render).
-  const user = await getCurrentUser();
 
   return (
     <main className={styles.page}>
@@ -142,6 +150,8 @@ export default async function DashboardPage() {
               Run Scan
             </button>
           </form>
+
+          {scanError && <p className={styles.errorNote}>{scanError}</p>}
 
           <div className={styles.trustRow}>
             <span className={styles.trustItem}>

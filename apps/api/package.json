@@ -16,6 +16,7 @@
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^10.4.0",
     "@nestjs/throttler": "^6.2.0",
+    "@readycheck/billing": "workspace:*",
     "@readycheck/db": "workspace:*",
     "@readycheck/queue": "workspace:*",
     "@readycheck/reports": "workspace:*",

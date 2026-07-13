@@ -105,10 +105,18 @@ describe("generateHtmlReport", () => {
 });
 
 describe("generateReport", () => {
-  it("dispatches to the correct format", () => {
-    expect(generateReport(scan, "json")).toContain('"id": "scan-1"');
-    expect(generateReport(scan, "markdown")).toContain("# ReadyCheck AI");
-    expect(generateReport(scan, "csv")).toContain("ruleId,category");
-    expect(generateReport(scan, "html")).toContain("<!doctype html>");
+  it("dispatches to the correct format", async () => {
+    expect(await generateReport(scan, "json")).toContain('"id": "scan-1"');
+    expect(await generateReport(scan, "markdown")).toContain("# ReadyCheck AI");
+    expect(await generateReport(scan, "csv")).toContain("ruleId,category");
+    expect(await generateReport(scan, "html")).toContain("<!doctype html>");
+  });
+
+  it("generates a non-empty PDF buffer", async () => {
+    const pdf = await generateReport(scan, "pdf");
+    expect(Buffer.isBuffer(pdf)).toBe(true);
+    expect((pdf as Buffer).length).toBeGreaterThan(0);
+    // PDF magic bytes.
+    expect((pdf as Buffer).subarray(0, 4).toString()).toBe("%PDF");
   });
 });

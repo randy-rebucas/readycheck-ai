@@ -146,6 +146,7 @@ const PLANS = [
     features: ["1 Repository", "Basic Scan", "AI Summary", "Production Score"],
     cta: "Get Started Free",
     ctaClass: "btnSecondary" as const,
+    href: "/dashboard",
     featured: false,
   },
   {
@@ -162,6 +163,7 @@ const PLANS = [
     ],
     cta: "Start Pro Trial",
     ctaClass: "btnSuccess" as const,
+    href: "/dashboard/settings",
     featured: true,
   },
   {
@@ -179,6 +181,7 @@ const PLANS = [
     ],
     cta: "Contact Sales",
     ctaClass: "btnPurple" as const,
+    href: "mailto:sales@readycheck.ai",
     featured: false,
   },
 ];
@@ -597,9 +600,15 @@ export default async function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link href="/dashboard" className={styles[plan.ctaClass]}>
-                  {plan.cta}
-                </Link>
+                {plan.href.startsWith("mailto:") ? (
+                  <a href={plan.href} className={styles[plan.ctaClass]}>
+                    {plan.cta}
+                  </a>
+                ) : (
+                  <Link href={plan.href} className={styles[plan.ctaClass]}>
+                    {plan.cta}
+                  </Link>
+                )}
               </div>
             ))}
           </div>
