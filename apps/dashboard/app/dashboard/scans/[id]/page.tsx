@@ -15,7 +15,7 @@ export default async function ScanDetailPage({ params }: { params: Promise<{ id:
 
   // Guaranteed by middleware.ts (which gates /dashboard/*).
   const user = await getCurrentUser();
-  const plan = user ? (await getBillingPlan(user.id).catch(() => null))?.plan ?? "FREE" : "FREE";
+  const plan = user ? (await getBillingPlan().catch(() => null))?.plan ?? "FREE" : "FREE";
 
   return <ScanDetailClient initialScan={scan} user={user} plan={plan} />;
 }

@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPreferences, savePreferences } from "../../../lib/api";
 import { getCurrentUser } from "../../../lib/get-current-user";
 
-// Proxies to the API with the server's key, scoped to the session user's own
-// id -- the browser never chooses whose preferences it touches.
+// Proxies to the API with the caller's own session -- the API only ever
+// touches that user's preferences.
 
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    return NextResponse.json(await getPreferences(user.id));
+    return NextResponse.json(await getPreferences());
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to load preferences";
     return NextResponse.json({ error: message }, { status: 502 });
@@ -30,7 +30,7 @@ export async function PUT(request: NextRequest) {
 
   try {
     // The API sanitizes the body down to the known preference keys.
-    return NextResponse.json(await savePreferences(user.id, body as never));
+    return NextResponse.json(await savePreferences(body as never));
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to save preferences";
     return NextResponse.json({ error: message }, { status: 502 });

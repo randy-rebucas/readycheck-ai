@@ -7,7 +7,7 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    return NextResponse.json(await getBillingPlan(user.id));
+    return NextResponse.json(await getBillingPlan());
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to load billing plan";
     return NextResponse.json({ error: message }, { status: 502 });

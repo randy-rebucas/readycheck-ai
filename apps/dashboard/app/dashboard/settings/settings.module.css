@@ -297,3 +297,138 @@
 .contactBtn:hover {
   border-color: var(--border-strong, #3d4457);
 }
+
+/* Organization panel */
+
+.memberList {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  border-top: 1px solid var(--border, #1c2130);
+}
+
+.memberRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border, #1c2130);
+}
+
+.memberActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.youTag {
+  color: var(--text-faint, #7a8093);
+  font-weight: 500;
+}
+
+.roleTag {
+  color: var(--text-muted, #9aa1b1);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.inlineForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.textInput,
+.roleSelect {
+  box-sizing: border-box;
+  background: var(--surface-2, #0f1320);
+  border: 1px solid var(--border, #1c2130);
+  border-radius: 10px;
+  color: var(--text, #e6e8ee);
+  font: inherit;
+  font-size: 0.86rem;
+  padding: 0.55rem 0.75rem;
+}
+
+.textInput {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.textInput::placeholder {
+  color: var(--placeholder, #5b6275);
+}
+
+.textInput:focus-visible,
+.roleSelect:focus-visible {
+  outline: 2px solid var(--indigo, #818cf8);
+  outline-offset: 1px;
+}
+
+.primaryBtn,
+.secondaryBtn {
+  border-radius: 10px;
+  padding: 0.55rem 1rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primaryBtn {
+  background: var(--indigo, #6366f1);
+  border: 1px solid var(--indigo, #6366f1);
+  color: #fff;
+}
+
+.secondaryBtn {
+  background: var(--surface-2, #0f1320);
+  border: 1px solid var(--border, #1c2130);
+  color: var(--text, #e6e8ee);
+}
+
+.secondaryBtn:hover {
+  border-color: var(--border-strong, #2a3142);
+}
+
+.primaryBtn:disabled,
+.secondaryBtn:disabled,
+.cancelBtn:disabled,
+.leaveBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.leaveBtn {
+  margin-top: 1.25rem;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--danger-text, #fca5a5);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.leaveBtn:hover {
+  text-decoration: underline;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .memberRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

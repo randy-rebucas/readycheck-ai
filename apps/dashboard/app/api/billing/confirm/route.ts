@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { confirmSubscription } from "../../../../lib/api";
+import { confirmSubscription, errorResponse } from "../../../../lib/api";
 import { getCurrentUser } from "../../../../lib/get-current-user";
 
 export async function POST(request: NextRequest) {
@@ -18,9 +18,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    return NextResponse.json(await confirmSubscription(user.id, subscriptionID));
+    return NextResponse.json(await confirmSubscription(subscriptionID));
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to confirm subscription";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return errorResponse(err, "Failed to confirm subscription");
   }
 }

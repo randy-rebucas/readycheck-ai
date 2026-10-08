@@ -1,0 +1,56 @@
+.chip {
+  gap: 0.45rem;
+  /* userChip's tight left padding is sized for an avatar; this chip has an icon. */
+  padding: 0.35rem 0.8rem;
+}
+
+.chip:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.chipName {
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu {
+  left: 0;
+  right: auto;
+  min-width: 260px;
+}
+
+.check {
+  display: inline-flex;
+  width: 14px;
+  flex-shrink: 0;
+  color: var(--indigo, #818cf8);
+}
+
+.orgName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.role {
+  color: var(--text-faint, #7a8093);
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+@media (max-width: 640px) {
+  .chipName {
+    display: none;
+  }
+
+  .menu {
+    left: auto;
+    right: 0;
+  }
+}

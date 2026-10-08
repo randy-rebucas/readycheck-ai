@@ -7,7 +7,7 @@ export async function POST() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    await markAllNotificationsRead(user.id);
+    await markAllNotificationsRead();
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to mark all read";

@@ -13,7 +13,7 @@ export async function triggerScanAction(formData: FormData) {
 
   let scanId: string;
   try {
-    ({ scanId } = await triggerScan(path, user.id));
+    ({ scanId } = await triggerScan(path));
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to trigger scan";
     redirect(`/dashboard?scanError=${encodeURIComponent(message)}`);

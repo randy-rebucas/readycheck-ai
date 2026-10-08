@@ -13,7 +13,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   let upstream: Response;
   try {
-    upstream = await fetchReport(id, format, user.id);
+    upstream = await fetchReport(id, format);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to fetch report";
     return NextResponse.json({ error: message }, { status: 502 });

@@ -111,7 +111,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   let apiError: string | null = null;
 
   try {
-    scans = await listScans(user.id);
+    scans = await listScans();
   } catch (err) {
     apiError = err instanceof Error ? err.message : "Failed to reach the ReadyCheck API";
   }

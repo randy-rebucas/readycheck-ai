@@ -4,6 +4,7 @@ import { getCurrentUser } from "../../../lib/get-current-user";
 import AppHeader from "../../AppHeader";
 import dashStyles from "../dashboard.module.css";
 import BillingPanel from "./BillingPanel";
+import OrgPanel from "./OrgPanel";
 import styles from "./settings.module.css";
 import SettingsPanels from "./SettingsPanels";
 import { ArrowRightIcon, ChevronRightIcon, UserIcon } from "../../landing-icons";
@@ -44,6 +45,8 @@ export default async function SettingsPage() {
             <ChevronRightIcon size={14} />
           </Link>
         </section>
+
+        <OrgPanel currentUserId={user.id} />
 
         <BillingPanel />
 

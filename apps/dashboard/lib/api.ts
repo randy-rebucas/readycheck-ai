@@ -1,11 +1,78 @@
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+import { ORG_COOKIE } from "./org";
+import { SESSION_COOKIE } from "./session";
+
 const API_URL = process.env.READYCHECK_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 // Server-only. Never exposed to the browser -- all fetches in this file run
-// in Server Components / Server Actions, not client code.
+// in Server Components / Server Actions / Route Handlers, not client code.
 const API_KEY = process.env.READYCHECK_API_KEY;
 
-function authHeaders(): HeadersInit {
-  return API_KEY ? { "x-api-key": API_KEY } : {};
+/**
+ * Every API call carries the caller's own session token (the API derives
+ * identity from it -- never from a user id we pass) and, if one is selected,
+ * the active org (which the API checks against the user's memberships).
+ */
+async function authHeaders(): Promise<Record<string, string>> {
+  const store = await cookies();
+  const headers: Record<string, string> = {};
+  if (API_KEY) headers["x-api-key"] = API_KEY;
+  const session = store.get(SESSION_COOKIE)?.value;
+  if (session) headers.authorization = `Bearer ${session}`;
+  const orgId = store.get(ORG_COOKIE)?.value;
+  if (orgId) headers["x-org-id"] = orgId;
+  return headers;
+}
+
+/** An API error that keeps the upstream status so route handlers can pass 4xx through. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+const NOT_A_MEMBER = "You are not a member of this organization.";
+
+async function request(path: string, init: RequestInit = {}): Promise<Response> {
+  const headers = { ...(await authHeaders()), ...(init.headers as Record<string, string> | undefined) };
+  if (init.body !== undefined) headers["Content-Type"] = "application/json";
+  let res = await fetch(`${API_URL}${path}`, { ...init, headers, cache: "no-store" });
+
+  // A stale org cookie (the user left or was removed from that org) would
+  // otherwise 403 every page. Fall back to the personal workspace; the org
+  // switcher then shows that as current and the next switch rewrites the cookie.
+  if (res.status === 403 && headers["x-org-id"]) {
+    const body = await res.clone().json().catch(() => null);
+    if (body?.message === NOT_A_MEMBER) {
+      delete headers["x-org-id"];
+      res = await fetch(`${API_URL}${path}`, { ...init, headers, cache: "no-store" });
+    }
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    const message = typeof body?.message === "string" ? body.message : `API request failed: ${res.status}`;
+    throw new ApiError(message, res.status);
+  }
+  return res;
+}
+
+async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  return (await request(path, init)).json();
+}
+
+/** Route-handler helper: 4xx from the API passes through; anything else is a 502. */
+export function errorResponse(err: unknown, fallback: string): NextResponse {
+  if (err instanceof ApiError && err.status >= 400 && err.status < 500) {
+    return NextResponse.json({ error: err.message }, { status: err.status });
+  }
+  const message = err instanceof Error ? err.message : fallback;
+  return NextResponse.json({ error: message }, { status: 502 });
 }
 
 export interface CategoryScore {
@@ -44,28 +111,16 @@ export interface ScanDetail extends Scan {
   categoryScores: CategoryScore[];
 }
 
-export async function listScans(userId: string): Promise<Scan[]> {
-  const res = await fetch(`${API_URL}/scans?userId=${encodeURIComponent(userId)}`, {
-    cache: "no-store",
-    headers: authHeaders(),
-  });
-  if (!res.ok) throw new Error(`Failed to list scans: ${res.status}`);
-  return res.json();
+export async function listScans(): Promise<Scan[]> {
+  return requestJson("/scans");
 }
 
 export async function getScan(id: string): Promise<ScanDetail> {
-  const res = await fetch(`${API_URL}/scans/${id}`, { cache: "no-store", headers: authHeaders() });
-  if (!res.ok) throw new Error(`Failed to load scan ${id}: ${res.status}`);
-  return res.json();
+  return requestJson(`/scans/${encodeURIComponent(id)}`);
 }
 
-export async function fetchReport(id: string, format: string, userId: string): Promise<Response> {
-  const res = await fetch(
-    `${API_URL}/scans/${id}/report?format=${format}&userId=${encodeURIComponent(userId)}`,
-    { cache: "no-store", headers: authHeaders() }
-  );
-  if (!res.ok) throw new Error(`Failed to fetch report: ${res.status}`);
-  return res;
+export async function fetchReport(id: string, format: string): Promise<Response> {
+  return request(`/scans/${encodeURIComponent(id)}/report?format=${encodeURIComponent(format)}`);
 }
 
 export interface UserPreferences {
@@ -74,27 +129,12 @@ export interface UserPreferences {
   productUpdates: boolean;
 }
 
-export async function getPreferences(userId: string): Promise<UserPreferences> {
-  const res = await fetch(`${API_URL}/users/${userId}/preferences`, {
-    cache: "no-store",
-    headers: authHeaders(),
-  });
-  if (!res.ok) throw new Error(`Failed to load preferences: ${res.status}`);
-  return res.json();
+export async function getPreferences(): Promise<UserPreferences> {
+  return requestJson("/users/me/preferences");
 }
 
-export async function savePreferences(
-  userId: string,
-  prefs: UserPreferences
-): Promise<UserPreferences> {
-  const res = await fetch(`${API_URL}/users/${userId}/preferences`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify(prefs),
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`Failed to save preferences: ${res.status}`);
-  return res.json();
+export async function savePreferences(prefs: UserPreferences): Promise<UserPreferences> {
+  return requestJson("/users/me/preferences", { method: "PUT", body: JSON.stringify(prefs) });
 }
 
 export interface Notification {
@@ -112,60 +152,24 @@ export interface NotificationsPage {
   unreadCount: number;
 }
 
-export async function listNotifications(userId: string): Promise<NotificationsPage> {
-  const res = await fetch(`${API_URL}/notifications?userId=${encodeURIComponent(userId)}`, {
-    cache: "no-store",
-    headers: authHeaders(),
-  });
-  if (!res.ok) throw new Error(`Failed to load notifications: ${res.status}`);
-  return res.json();
+export async function listNotifications(): Promise<NotificationsPage> {
+  return requestJson("/notifications");
 }
 
-export async function markNotificationRead(userId: string, id: string): Promise<void> {
-  const res = await fetch(`${API_URL}/notifications/read`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ userId, id }),
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`Failed to mark notification read: ${res.status}`);
+export async function markNotificationRead(id: string): Promise<void> {
+  await request("/notifications/read", { method: "POST", body: JSON.stringify({ id }) });
 }
 
-export async function markAllNotificationsRead(userId: string): Promise<void> {
-  const res = await fetch(`${API_URL}/notifications/read-all`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ userId }),
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`Failed to mark all notifications read: ${res.status}`);
+export async function markAllNotificationsRead(): Promise<void> {
+  await request("/notifications/read-all", { method: "POST" });
 }
 
-export async function triggerScan(
-  path: string,
-  userId: string
-): Promise<{ scanId: string; status: string }> {
-  const res = await fetch(`${API_URL}/scans`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ path, userId }),
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new Error(body?.message ?? `Failed to trigger scan: ${res.status}`);
-  }
-  return res.json();
+export async function triggerScan(path: string): Promise<{ scanId: string; status: string }> {
+  return requestJson("/scans", { method: "POST", body: JSON.stringify({ path }) });
 }
 
 export async function cancelScan(id: string): Promise<{ scanId: string; status: string }> {
-  const res = await fetch(`${API_URL}/scans/${id}/cancel`, {
-    method: "POST",
-    headers: authHeaders(),
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`Failed to cancel scan: ${res.status}`);
-  return res.json();
+  return requestJson(`/scans/${encodeURIComponent(id)}/cancel`, { method: "POST" });
 }
 
 export interface PlanSummary {
@@ -179,36 +183,66 @@ export interface PlanSummary {
   };
 }
 
-export async function getBillingPlan(userId: string): Promise<PlanSummary> {
-  const res = await fetch(`${API_URL}/billing/plan?userId=${encodeURIComponent(userId)}`, {
-    cache: "no-store",
-    headers: authHeaders(),
-  });
-  if (!res.ok) throw new Error(`Failed to load billing plan: ${res.status}`);
-  return res.json();
+export async function getBillingPlan(): Promise<PlanSummary> {
+  return requestJson("/billing/plan");
 }
 
-export async function confirmSubscription(
-  userId: string,
-  paypalSubscriptionId: string
-): Promise<PlanSummary> {
-  const res = await fetch(`${API_URL}/billing/subscribe`, {
+export async function confirmSubscription(paypalSubscriptionId: string): Promise<PlanSummary> {
+  return requestJson("/billing/subscribe", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ userId, paypalSubscriptionId }),
-    cache: "no-store",
+    body: JSON.stringify({ paypalSubscriptionId }),
   });
-  if (!res.ok) throw new Error(`Failed to confirm subscription: ${res.status}`);
-  return res.json();
 }
 
-export async function cancelSubscription(userId: string): Promise<PlanSummary> {
-  const res = await fetch(`${API_URL}/billing/cancel`, {
+export async function cancelSubscription(): Promise<PlanSummary> {
+  return requestJson("/billing/cancel", { method: "POST" });
+}
+
+export type OrgRole = "owner" | "admin" | "member";
+
+export interface OrgSummary {
+  id: string;
+  name: string;
+  slug: string;
+  personal: boolean;
+  role: OrgRole;
+}
+
+export interface OrgMember {
+  userId: string;
+  email: string | null;
+  name: string | null;
+  avatarUrl: string | null;
+  role: OrgRole;
+  joinedAt: string;
+}
+
+export async function listOrgs(): Promise<{ currentOrgId: string; orgs: OrgSummary[] }> {
+  return requestJson("/orgs");
+}
+
+export async function createOrg(name: string): Promise<OrgSummary> {
+  return requestJson("/orgs", { method: "POST", body: JSON.stringify({ name }) });
+}
+
+export async function listMembers(): Promise<OrgMember[]> {
+  return requestJson("/orgs/current/members");
+}
+
+export async function addMember(email: string, role: OrgRole): Promise<OrgMember> {
+  return requestJson("/orgs/current/members", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ userId }),
-    cache: "no-store",
+    body: JSON.stringify({ email, role }),
   });
-  if (!res.ok) throw new Error(`Failed to cancel subscription: ${res.status}`);
-  return res.json();
+}
+
+export async function changeMemberRole(userId: string, role: OrgRole): Promise<void> {
+  await request(`/orgs/current/members/${encodeURIComponent(userId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ role }),
+  });
+}
+
+export async function removeMember(userId: string): Promise<void> {
+  await request(`/orgs/current/members/${encodeURIComponent(userId)}`, { method: "DELETE" });
 }

@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await markNotificationRead(user.id, id);
+    await markNotificationRead(id);
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to mark notification read";

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { cancelSubscription } from "../../../../lib/api";
+import { cancelSubscription, errorResponse } from "../../../../lib/api";
 import { getCurrentUser } from "../../../../lib/get-current-user";
 
 export async function POST() {
@@ -7,9 +7,8 @@ export async function POST() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    return NextResponse.json(await cancelSubscription(user.id));
+    return NextResponse.json(await cancelSubscription());
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to cancel subscription";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return errorResponse(err, "Failed to cancel subscription");
   }
 }

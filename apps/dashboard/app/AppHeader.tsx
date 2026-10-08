@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { SessionUser } from "../lib/session";
 import styles from "./AppHeader.module.css";
 import NotificationBell from "./NotificationBell";
+import OrgSwitcher from "./OrgSwitcher";
 import ThemeToggle from "./ThemeToggle";
 import UserMenu from "./UserMenu";
 import { BrandMark, HelpCircleIcon, SettingsIcon } from "./landing-icons";
@@ -46,6 +47,7 @@ export default function AppHeader({ user, active }: AppHeaderProps) {
         <ThemeToggle className={styles.iconBtn} />
         {user ? (
           <>
+            <OrgSwitcher chipClassName={styles.userChip} />
             <UserMenu
               user={user}
               chipClassName={styles.userChip}
