@@ -51,7 +51,11 @@ async function processScan(job: Job<ScanJobData>) {
   let clonedDir: string | undefined;
   const label = scanLabel(repoUrl ?? path ?? scanId);
 
-  await prisma.scan.update({ where: { id: scanId }, data: { status: "active" } });
+  const { orgId } = await prisma.scan.update({
+    where: { id: scanId },
+    data: { status: "active" },
+    select: { orgId: true },
+  });
 
   try {
     if (repoUrl) {
@@ -134,6 +138,7 @@ async function processScan(job: Job<ScanJobData>) {
           title: `Scan completed: ${label}`,
           body: `Readiness score ${result.overallScore}% -- ${result.verdict}.`,
           scanId,
+          orgId,
         },
       }),
     ]);
@@ -186,12 +191,14 @@ worker.on("failed", async (job, err) => {
       data: { status: "failed", errorMessage: err.message },
     });
     if (count > 0) {
+      const scan = await prisma.scan.findUnique({ where: { id: scanId }, select: { orgId: true } });
       await prisma.notification.create({
         data: {
           type: "scan_failed",
           title: `Scan failed: ${scanLabel(repoUrl ?? path ?? scanId)}`,
           body: err.message,
           scanId,
+          orgId: scan?.orgId ?? null,
         },
       });
     }

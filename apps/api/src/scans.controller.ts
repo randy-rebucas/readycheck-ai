@@ -19,6 +19,7 @@ import { generateReport, REPORT_CONTENT_TYPES, type ReportFormat } from "@readyc
 import { getEffectivePlan, planAllowsFormat, PLAN_LIMITS } from "@readycheck/billing";
 import { ApiKeyGuard } from "./api-key.guard";
 import { resolveScanSource, type TriggerScanDto } from "./scan-source";
+import { CurrentTenant, type Tenant } from "./tenancy/tenant";
 
 const REPORT_FORMATS: ReportFormat[] = ["json", "markdown", "csv", "html", "pdf"];
 const REPORT_EXTENSIONS: Record<ReportFormat, string> = {
@@ -29,10 +30,27 @@ const REPORT_EXTENSIONS: Record<ReportFormat, string> = {
   pdf: "pdf",
 };
 
+const MAX_LIST_LIMIT = 100;
+
 const prisma = getPrismaClient();
 
-interface TriggerScanBody extends TriggerScanDto {
-  userId?: string;
+/**
+ * Loads a scan only if it belongs to the caller's org. Another org's scan is
+ * reported as missing (404), not forbidden, so ids can't be probed.
+ */
+async function findOrgScan(tenant: Tenant, id: string) {
+  const scan = await prisma.scan.findFirst({ where: { id, orgId: tenant.orgId } });
+  if (!scan) throw new NotFoundException(`No scan found with id ${id}`);
+  return scan;
+}
+
+async function findOrgScanDetail(tenant: Tenant, id: string) {
+  const scan = await prisma.scan.findFirst({
+    where: { id, orgId: tenant.orgId },
+    include: { issues: true, categoryScores: true },
+  });
+  if (!scan) throw new NotFoundException(`No scan found with id ${id}`);
+  return scan;
 }
 
 @Controller("scans")
@@ -44,22 +62,19 @@ export class ScansController {
   // and daily-scan limits below are enforced separately.
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post()
-  async trigger(@Body() dto: TriggerScanBody) {
-    if (!dto.userId) {
-      throw new BadRequestException("Missing userId.");
-    }
+  async trigger(@CurrentTenant() tenant: Tenant, @Body() dto: TriggerScanDto) {
     const resolved = resolveScanSource(dto);
     if (!resolved) {
       throw new BadRequestException("Provide either 'path' or 'repoUrl'.");
     }
     const { source, isGitUrl } = resolved;
 
-    const subscription = await prisma.subscription.findUnique({ where: { userId: dto.userId } });
+    const subscription = await prisma.subscription.findUnique({ where: { orgId: tenant.orgId } });
     const plan = getEffectivePlan(subscription);
     const limits = PLAN_LIMITS[plan];
 
     const scannedPaths = await prisma.scan.findMany({
-      where: { userId: dto.userId },
+      where: { orgId: tenant.orgId },
       distinct: ["path"],
       select: { path: true },
     });
@@ -73,7 +88,7 @@ export class ScansController {
     if (Number.isFinite(limits.dailyScanLimit)) {
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const recentCount = await prisma.scan.count({
-        where: { userId: dto.userId, createdAt: { gte: since } },
+        where: { orgId: tenant.orgId, createdAt: { gte: since } },
       });
       if (recentCount >= limits.dailyScanLimit) {
         throw new ForbiddenException(
@@ -87,7 +102,8 @@ export class ScansController {
         path: source,
         sourceType: isGitUrl ? "git" : "local",
         status: "queued",
-        userId: dto.userId,
+        orgId: tenant.orgId,
+        userId: tenant.userId,
       },
     });
 
@@ -102,11 +118,8 @@ export class ScansController {
   }
 
   @Post(":id/cancel")
-  async cancel(@Param("id") id: string) {
-    const scan = await prisma.scan.findUnique({ where: { id } });
-    if (!scan) {
-      throw new NotFoundException(`No scan found with id ${id}`);
-    }
+  async cancel(@CurrentTenant() tenant: Tenant, @Param("id") id: string) {
+    const scan = await findOrgScan(tenant, id);
     if (scan.status !== "queued" && scan.status !== "active") {
       throw new BadRequestException(`Scan is already ${scan.status}; nothing to cancel.`);
     }
@@ -132,34 +145,25 @@ export class ScansController {
   }
 
   @Get()
-  async list(@Query("userId") userId: string, @Query("limit") limit?: string) {
-    if (!userId) throw new BadRequestException("Missing userId query param.");
+  async list(@CurrentTenant() tenant: Tenant, @Query("limit") limit?: string) {
+    const take = Math.min(Math.max(Number(limit) || 20, 1), MAX_LIST_LIMIT);
     return prisma.scan.findMany({
-      where: { userId },
+      where: { orgId: tenant.orgId },
       orderBy: { createdAt: "desc" },
-      take: limit ? Number(limit) : 20,
+      take,
     });
   }
 
   @Get(":id")
-  async getStatus(@Param("id") id: string) {
-    const scan = await prisma.scan.findUnique({
-      where: { id },
-      include: { issues: true, categoryScores: true },
-    });
-
-    if (!scan) {
-      throw new NotFoundException(`No scan found with id ${id}`);
-    }
-
-    return scan;
+  async getStatus(@CurrentTenant() tenant: Tenant, @Param("id") id: string) {
+    return findOrgScanDetail(tenant, id);
   }
 
   @Get(":id/report")
   async getReport(
+    @CurrentTenant() tenant: Tenant,
     @Param("id") id: string,
     @Query("format") formatParam: string | undefined,
-    @Query("userId") userId: string | undefined,
     @Res({ passthrough: true }) res: Response
   ) {
     const format = (formatParam ?? "markdown") as ReportFormat;
@@ -167,25 +171,16 @@ export class ScansController {
       throw new BadRequestException(`Unsupported format '${formatParam}'. Use one of: ${REPORT_FORMATS.join(", ")}`);
     }
 
+    const scan = await findOrgScanDetail(tenant, id);
+
     // pdf is currently the only format not on every plan; skip the extra
     // Subscription lookup for the common (free-and-included) formats.
     if (format === "pdf") {
-      const subscription = userId
-        ? await prisma.subscription.findUnique({ where: { userId } })
-        : null;
+      const subscription = await prisma.subscription.findUnique({ where: { orgId: tenant.orgId } });
       const plan = getEffectivePlan(subscription);
       if (!planAllowsFormat(plan, format)) {
         throw new ForbiddenException(`The '${format}' report format requires a Pro or Enterprise plan.`);
       }
-    }
-
-    const scan = await prisma.scan.findUnique({
-      where: { id },
-      include: { issues: true, categoryScores: true },
-    });
-
-    if (!scan) {
-      throw new NotFoundException(`No scan found with id ${id}`);
     }
 
     const body = await generateReport(scan, format);

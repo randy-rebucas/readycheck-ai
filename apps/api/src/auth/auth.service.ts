@@ -3,6 +3,7 @@ import { ConflictException, Inject, Injectable } from "@nestjs/common";
 import { JwtService, type JwtSignOptions } from "@nestjs/jwt";
 import { getPrismaClient } from "@readycheck/db";
 import bcrypt from "bcryptjs";
+import { createPersonalOrg } from "../tenancy/orgs";
 import type { RegisterInput } from "./credentials";
 import type { JwtPayload, SessionUser, TokenPurpose } from "./jwt.types";
 import { sendPasswordResetEmail } from "./mailer";
@@ -63,15 +64,19 @@ export class AuthService {
 
     const user =
       linkableUser ??
-      (await prisma.user.create({
-        data: {
-          // If an unverified account squats this address, create without an
-          // email rather than fail on the unique constraint.
-          email: existingUser ? null : profile.email,
-          emailVerified: !existingUser && profile.email !== null,
-          name: profile.name,
-          avatarUrl: profile.avatarUrl,
-        },
+      (await prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: {
+            // If an unverified account squats this address, create without an
+            // email rather than fail on the unique constraint.
+            email: existingUser ? null : profile.email,
+            emailVerified: !existingUser && profile.email !== null,
+            name: profile.name,
+            avatarUrl: profile.avatarUrl,
+          },
+        });
+        await createPersonalOrg(tx, created);
+        return created;
       }));
 
     await prisma.account.create({
@@ -93,13 +98,18 @@ export class AuthService {
       );
     }
 
-    const user = await prisma.user.create({
-      data: {
-        email: input.email,
-        emailVerified: false,
-        passwordHash: await bcrypt.hash(input.password, 10),
-        name: input.name,
-      },
+    const passwordHash = await bcrypt.hash(input.password, 10);
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email: input.email,
+          emailVerified: false,
+          passwordHash,
+          name: input.name,
+        },
+      });
+      await createPersonalOrg(tx, created);
+      return created;
     });
 
     return this.toSessionUser(user.id, user);

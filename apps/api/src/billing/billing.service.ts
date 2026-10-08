@@ -28,12 +28,12 @@ export interface PlanSummary {
 // metadata Nest's DI needs, so this mirrors the module-level-singleton
 // pattern already used by ScansController/UsersController/NotificationsController).
 export class BillingService {
-  async getPlanSummary(userId: string): Promise<PlanSummary> {
-    const subscription = await prisma.subscription.findUnique({ where: { userId } });
+  async getPlanSummary(orgId: string): Promise<PlanSummary> {
+    const subscription = await prisma.subscription.findUnique({ where: { orgId } });
     const plan = getEffectivePlan(subscription);
 
     const scannedPaths = await prisma.scan.findMany({
-      where: { userId },
+      where: { orgId },
       distinct: ["path"],
       select: { path: true },
     });
@@ -50,7 +50,7 @@ export class BillingService {
     };
   }
 
-  async subscribe(userId: string, paypalSubscriptionId: string): Promise<PlanSummary> {
+  async subscribe(orgId: string, paypalSubscriptionId: string): Promise<PlanSummary> {
     const paypalSub = await paypalGetSubscription(paypalSubscriptionId);
 
     const expectedPlanId = process.env.PAYPAL_PRO_PLAN_ID;
@@ -61,10 +61,17 @@ export class BillingService {
       throw new BadRequestException(`PayPal subscription is not active (status: ${paypalSub.status}).`);
     }
 
+    // One PayPal subscription pays for exactly one org; a second org can't
+    // claim an id it saw elsewhere.
+    const claimed = await prisma.subscription.findUnique({ where: { paypalSubscriptionId } });
+    if (claimed && claimed.orgId !== orgId) {
+      throw new ForbiddenException("This PayPal subscription is already linked to another organization.");
+    }
+
     await prisma.subscription.upsert({
-      where: { userId },
+      where: { orgId },
       create: {
-        userId,
+        orgId,
         plan: "PRO",
         status: "ACTIVE",
         paypalSubscriptionId,
@@ -84,11 +91,11 @@ export class BillingService {
       },
     });
 
-    return this.getPlanSummary(userId);
+    return this.getPlanSummary(orgId);
   }
 
-  async cancel(userId: string): Promise<PlanSummary> {
-    const subscription = await prisma.subscription.findUnique({ where: { userId } });
+  async cancel(orgId: string): Promise<PlanSummary> {
+    const subscription = await prisma.subscription.findUnique({ where: { orgId } });
     if (!subscription?.paypalSubscriptionId) {
       throw new NotFoundException("No active subscription to cancel.");
     }
@@ -97,11 +104,11 @@ export class BillingService {
     // Access stays at the current plan until currentPeriodEnd -- getEffectivePlan()
     // handles the downgrade once that date passes.
     await prisma.subscription.update({
-      where: { userId },
+      where: { orgId },
       data: { cancelAtPeriodEnd: true },
     });
 
-    return this.getPlanSummary(userId);
+    return this.getPlanSummary(orgId);
   }
 
   async verifyAndHandleWebhook(input: WebhookVerificationInput): Promise<void> {

@@ -21,7 +21,11 @@ import {
 } from "./credentials";
 import { decodeRedirectState } from "./oauth-state";
 import { GitHubAuthGuard, GoogleAuthGuard } from "./provider.guards";
+import { Public } from "../tenancy/tenant";
 
+// Public: these routes establish identity (or, for /auth/me, verify the
+// token themselves), so SessionGuard can't apply.
+@Public()
 @Controller("auth")
 export class AuthController {
   // Explicit token: the dev runner (tsx/esbuild) doesn't emit decorator

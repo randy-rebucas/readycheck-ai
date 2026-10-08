@@ -1,5 +1,6 @@
-import { BadRequestException, Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
 import { ApiKeyGuard } from "../api-key.guard";
+import { CurrentTenant, requireRole, type Tenant } from "../tenancy/tenant";
 import { BillingService } from "./billing.service";
 
 // Instantiated directly rather than constructor-injected: NestJS DI needs
@@ -11,29 +12,31 @@ import { BillingService } from "./billing.service";
 // instead of Nest DI (see scans.controller.ts's `const prisma = ...`).
 const billingService = new BillingService();
 
-// Caller identity is the dashboard server (x-api-key), which passes the user
-// id from its own verified session cookie -- see apps/dashboard/app/api and
-// users.controller.ts/notifications.controller.ts for the same convention.
+// The plan belongs to the caller's current org. Any member can see it; only
+// owners and admins can change it.
 @Controller("billing")
 @UseGuards(ApiKeyGuard)
 export class BillingController {
   @Get("plan")
-  async getPlan(@Query("userId") userId: string) {
-    if (!userId) throw new BadRequestException("Missing userId query param.");
-    return billingService.getPlanSummary(userId);
+  async getPlan(@CurrentTenant() tenant: Tenant) {
+    return billingService.getPlanSummary(tenant.orgId);
   }
 
   @Post("subscribe")
-  async subscribe(@Body() body: { userId?: string; paypalSubscriptionId?: string }) {
-    if (!body.userId || !body.paypalSubscriptionId) {
-      throw new BadRequestException("Expected { userId, paypalSubscriptionId }.");
+  async subscribe(
+    @CurrentTenant() tenant: Tenant,
+    @Body() body: { paypalSubscriptionId?: string }
+  ) {
+    requireRole(tenant, "admin");
+    if (!body.paypalSubscriptionId) {
+      throw new BadRequestException("Expected { paypalSubscriptionId }.");
     }
-    return billingService.subscribe(body.userId, body.paypalSubscriptionId);
+    return billingService.subscribe(tenant.orgId, body.paypalSubscriptionId);
   }
 
   @Post("cancel")
-  async cancel(@Body() body: { userId?: string }) {
-    if (!body.userId) throw new BadRequestException("Expected { userId }.");
-    return billingService.cancel(body.userId);
+  async cancel(@CurrentTenant() tenant: Tenant) {
+    requireRole(tenant, "admin");
+    return billingService.cancel(tenant.orgId);
   }
 }

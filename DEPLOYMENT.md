@@ -53,6 +53,21 @@ cd packages/db
 DATABASE_URL="postgresql://..." npx prisma migrate deploy
 ```
 
+> **Databases created before 2026-10-08 with `prisma db push`:** the notifications,
+> user preferences and scan-cancel schema used to exist only via `db push`; it's now the
+> migration `20260801000000_add_notifications_preferences_cancel`. If those tables already
+> exist in your database, mark that migration as applied instead of running it, then
+> deploy the rest:
+>
+> ```bash
+> npx prisma migrate resolve --applied 20260801000000_add_notifications_preferences_cancel
+> npx prisma migrate deploy
+> ```
+>
+> The next migration, `20261008000000_add_organizations`, backfills a personal
+> organization for every existing user and moves their scans, notifications and
+> subscription into it. Back up first; it drops `Subscription.userId`.
+
 For Kubernetes, the simplest safe pattern is a one-off `Job` using the `api` image
 (it already has `@prisma/client` and the compiled `packages/db` in its
 `node_modules`) run before applying the new `api`/`worker` deployments:

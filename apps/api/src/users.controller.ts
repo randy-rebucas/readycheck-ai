@@ -1,15 +1,7 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  Get,
-  NotFoundException,
-  Param,
-  Put,
-  UseGuards,
-} from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Put, UseGuards } from "@nestjs/common";
 import { getPrismaClient } from "@readycheck/db";
 import { ApiKeyGuard } from "./api-key.guard";
+import { CurrentTenant, type Tenant } from "./tenancy/tenant";
 
 // Type alias (not interface) so it satisfies Prisma's InputJsonObject, which
 // requires an implicit index signature.
@@ -44,35 +36,24 @@ export async function getPreferencesFor(userId: string): Promise<UserPreferences
   return sanitizePreferences(user?.preferences) ?? { ...DEFAULT_PREFERENCES };
 }
 
-// Caller identity is the dashboard server (x-api-key), which passes the user
-// id from its own verified session cookie -- see apps/dashboard/app/api.
-@Controller("users")
+// Preferences are per user (not per org), and only ever the caller's own.
+@Controller("users/me")
 @UseGuards(ApiKeyGuard)
 export class UsersController {
-  @Get(":id/preferences")
-  async getPreferences(@Param("id") id: string): Promise<UserPreferences> {
-    const user = await prisma.user.findUnique({
-      where: { id },
-      select: { preferences: true },
-    });
-    if (!user) throw new NotFoundException(`No user found with id ${id}`);
-
-    return sanitizePreferences(user.preferences) ?? { ...DEFAULT_PREFERENCES };
+  @Get("preferences")
+  async getPreferences(@CurrentTenant() tenant: Tenant): Promise<UserPreferences> {
+    return getPreferencesFor(tenant.userId);
   }
 
-  @Put(":id/preferences")
+  @Put("preferences")
   async putPreferences(
-    @Param("id") id: string,
+    @CurrentTenant() tenant: Tenant,
     @Body() body: unknown
   ): Promise<UserPreferences> {
     const prefs = sanitizePreferences(body);
     if (!prefs) throw new BadRequestException("Expected a preferences object.");
 
-    try {
-      await prisma.user.update({ where: { id }, data: { preferences: prefs } });
-    } catch {
-      throw new NotFoundException(`No user found with id ${id}`);
-    }
+    await prisma.user.update({ where: { id: tenant.userId }, data: { preferences: prefs } });
     return prefs;
   }
 }

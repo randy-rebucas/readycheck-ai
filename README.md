@@ -108,20 +108,48 @@ pnpm turbo run test        # per-package test scripts (vitest)
 npx vitest run --workspace vitest.workspace.ts   # same tests, single runner
 ```
 
-## Triggering a scan
+`apps/api/src/tenancy.integration.test.ts` boots the real API against Postgres and proves
+cross-org isolation over HTTP. It's skipped unless `TEST_DATABASE_URL` is set, and it
+**truncates every table** in that database — use a dedicated one:
 
 ```bash
-# userId must be a real User row's id (see packages/db's User model) -- scans
-# are owned per-user for plan limits (Free: 1 repository, 5 scans/24h) and
-# per-user listing.
+createdb readycheck_test   # or: docker exec <pg> psql -U readycheck -c "create database readycheck_test"
+(cd packages/db && DATABASE_URL=postgresql://readycheck:readycheck@localhost:5432/readycheck_test npx prisma migrate deploy)
+TEST_DATABASE_URL=postgresql://readycheck:readycheck@localhost:5432/readycheck_test pnpm test
+```
+
+## Triggering a scan
+
+Every endpoint except `/health`, `/auth/*` and `/billing/webhook` needs a session token
+(`Authorization: Bearer <token>` — the dashboard's `rc_session` cookie value, signed with
+`AUTH_JWT_SECRET`). Identity always comes from that token; requests never name a user.
+
+Scans, notifications and the subscription belong to an **organization**. Each user gets a
+personal org at signup; send `x-org-id: <orgId>` to act in a team org you belong to (anything
+else is a 403). Without the header, requests act in your personal org. Plan limits
+(Free: 1 repository, 5 scans/24h) are counted per org.
+
+```bash
+TOKEN=<session token>
 curl -X POST http://localhost:3001/scans \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"path": "https://github.com/octocat/Hello-World.git", "userId": "<userId>"}'
+  -d '{"path": "https://github.com/octocat/Hello-World.git"}'
 # -> {"scanId": "...", "status": "queued"}
 
-curl http://localhost:3001/scans/<scanId>
-curl http://localhost:3001/scans/<scanId>/report?format=markdown
+curl -H "Authorization: Bearer $TOKEN" http://localhost:3001/scans/<scanId>
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:3001/scans/<scanId>/report?format=markdown"
+
+# Organizations
+curl -H "Authorization: Bearer $TOKEN" http://localhost:3001/orgs
+curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name": "Acme"}' http://localhost:3001/orgs
+curl -X POST -H "Authorization: Bearer $TOKEN" -H "x-org-id: <orgId>" -H "Content-Type: application/json" \
+  -d '{"email": "teammate@acme.com", "role": "member"}' http://localhost:3001/orgs/current/members
 ```
+
+Roles: **owner** (everything, incl. granting owner), **admin** (members and billing), **member**
+(scans and reports). An org always keeps at least one owner; personal orgs never take members.
 
 `path` accepts either a local filesystem path or a public git URL (github/gitlab/bitbucket, or anything ending in `.git`) — the API auto-detects which.
 
@@ -132,6 +160,6 @@ For Docker image builds, `docker-compose` (single-host), and Kubernetes
 
 ## What's implemented vs. what's still a gap
 
-Implemented: full async scan pipeline, Postgres persistence, git cloning, a framework plugin system (Next.js), AI narrative generation with graceful degradation, report export (MD/HTML/CSV/JSON/PDF), basic API key auth, rate limiting on scan triggering, per-user scan ownership with a Free/Pro/Enterprise subscription model (1-repository and daily-scan limits on Free, PDF export gated to Pro/Enterprise, PayPal Subscriptions checkout — see [DEPLOYMENT.md](DEPLOYMENT.md#paypal-billing-setup)).
+Implemented: full async scan pipeline, Postgres persistence, git cloning, a framework plugin system (Next.js), AI narrative generation with graceful degradation, report export (MD/HTML/CSV/JSON/PDF), session-token auth on every API route, rate limiting on scan triggering, organizations (personal + team orgs, owner/admin/member roles, org switcher) owning scans, notifications and a Free/Pro/Enterprise subscription (1-repository and daily-scan limits on Free, PDF export gated to Pro/Enterprise, PayPal Subscriptions checkout — see [DEPLOYMENT.md](DEPLOYMENT.md#paypal-billing-setup)).
 
-Not yet implemented: multi-tenant *organization* model (plans are per-user, not per-team — no shared billing/seats across a company yet), GitHub App integration for private-repo cloning (OAuth login exists, but scan cloning only supports public unauthenticated git URLs), additional framework plugins beyond Next.js, Enterprise-tier features (SSO/SAML, custom rule policies, on-prem AI, audit logs — the plan tier exists in the data model, but these are sales-assisted/"Contact Us" only, not self-serve), Terraform IaC (Kubernetes manifests do exist — see [DEPLOYMENT.md](DEPLOYMENT.md) — but they have known gaps, documented there).
+Not yet implemented: email invitations (members must already have an account), per-seat billing, org-scoped API keys for CI, GitHub App integration for private-repo cloning (OAuth login exists, but scan cloning only supports public unauthenticated git URLs), additional framework plugins beyond Next.js, Enterprise-tier features (SSO/SAML, custom rule policies, on-prem AI, audit logs — the plan tier exists in the data model, but these are sales-assisted/"Contact Us" only, not self-serve), Terraform IaC (Kubernetes manifests do exist — see [DEPLOYMENT.md](DEPLOYMENT.md) — but they have known gaps, documented there).

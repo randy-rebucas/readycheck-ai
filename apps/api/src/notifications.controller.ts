@@ -1,12 +1,14 @@
 import { BadRequestException, Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
 import { getPrismaClient } from "@readycheck/db";
 import { ApiKeyGuard } from "./api-key.guard";
+import { CurrentTenant, type Tenant } from "./tenancy/tenant";
 import { getPreferencesFor } from "./users.controller";
 
 /** Notification types gated by the "Scan completed" preference toggle. */
 const SCAN_LIFECYCLE_TYPES = new Set(["scan_completed", "scan_failed"]);
 
 const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 100;
 
 export interface NotificationDto {
   id: string;
@@ -20,34 +22,31 @@ export interface NotificationDto {
 
 const prisma = getPrismaClient();
 
-// Caller identity is the dashboard server (x-api-key), which passes the user
-// id from its own verified session cookie -- see apps/dashboard/app/api.
+// Notifications are scoped to the caller's current org; read state is per user.
 @Controller("notifications")
 @UseGuards(ApiKeyGuard)
 export class NotificationsController {
   @Get()
   async list(
-    @Query("userId") userId: string,
+    @CurrentTenant() tenant: Tenant,
     @Query("limit") limitParam?: string
   ): Promise<{ notifications: NotificationDto[]; unreadCount: number }> {
-    if (!userId) throw new BadRequestException("Missing userId query param.");
-    const limit = limitParam ? Number(limitParam) : DEFAULT_LIMIT;
+    const limit = Math.min(Math.max(Number(limitParam) || DEFAULT_LIMIT, 1), MAX_LIMIT);
+    const { userId, orgId } = tenant;
 
     const prefs = await getPreferencesFor(userId);
+    // Events the user has turned off never appear, whether read or not.
+    const typeFilter = prefs.scanComplete ? {} : { type: { notIn: [...SCAN_LIFECYCLE_TYPES] } };
 
     const notifications = await prisma.notification.findMany({
-      // Events the user has turned off never appear, whether read or not.
-      where: prefs.scanComplete ? {} : { type: { notIn: [...SCAN_LIFECYCLE_TYPES] } },
+      where: { orgId, ...typeFilter },
       orderBy: { createdAt: "desc" },
       take: limit,
       include: { reads: { where: { userId }, select: { id: true } } },
     });
 
     const unreadCount = await prisma.notification.count({
-      where: {
-        ...(prefs.scanComplete ? {} : { type: { notIn: [...SCAN_LIFECYCLE_TYPES] } }),
-        reads: { none: { userId } },
-      },
+      where: { orgId, ...typeFilter, reads: { none: { userId } } },
     });
 
     return {
@@ -65,29 +64,37 @@ export class NotificationsController {
   }
 
   @Post("read")
-  async markRead(@Body() body: { userId?: string; id?: string }): Promise<{ ok: true }> {
-    if (!body.userId || !body.id) {
-      throw new BadRequestException("Expected { userId, id }.");
-    }
-    await prisma.notificationRead.upsert({
-      where: { notificationId_userId: { notificationId: body.id, userId: body.userId } },
-      create: { notificationId: body.id, userId: body.userId },
-      update: {},
+  async markRead(
+    @CurrentTenant() tenant: Tenant,
+    @Body() body: { id?: string }
+  ): Promise<{ ok: true }> {
+    if (!body.id) throw new BadRequestException("Expected { id }.");
+
+    // Only notifications in the caller's org can be marked; anything else is
+    // silently a no-op so ids from other orgs can't be probed.
+    const notification = await prisma.notification.findFirst({
+      where: { id: body.id, orgId: tenant.orgId },
+      select: { id: true },
     });
+    if (notification) {
+      await prisma.notificationRead.upsert({
+        where: { notificationId_userId: { notificationId: notification.id, userId: tenant.userId } },
+        create: { notificationId: notification.id, userId: tenant.userId },
+        update: {},
+      });
+    }
     return { ok: true };
   }
 
   @Post("read-all")
-  async markAllRead(@Body() body: { userId?: string }): Promise<{ ok: true }> {
-    if (!body.userId) throw new BadRequestException("Expected { userId }.");
-
+  async markAllRead(@CurrentTenant() tenant: Tenant): Promise<{ ok: true }> {
     const unread = await prisma.notification.findMany({
-      where: { reads: { none: { userId: body.userId } } },
+      where: { orgId: tenant.orgId, reads: { none: { userId: tenant.userId } } },
       select: { id: true },
     });
     if (unread.length > 0) {
       await prisma.notificationRead.createMany({
-        data: unread.map((n) => ({ notificationId: n.id, userId: body.userId as string })),
+        data: unread.map((n) => ({ notificationId: n.id, userId: tenant.userId })),
         skipDuplicates: true,
       });
     }
