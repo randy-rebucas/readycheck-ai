@@ -92,6 +92,7 @@ variables (shell exports, `docker-compose.yml`) take precedence over file values
 | `ANTHROPIC_API_KEY` | worker | Enables AI narrative generation (Claude). Unset = narratives are skipped gracefully; score/issues are unaffected. |
 | `AI_PROVIDER`, `AI_MODEL` | worker | Override the AI provider/model (defaults: `anthropic` / `claude-sonnet-5`) |
 | `PORT` | api | API listen port (default 3001) |
+| `READYCHECK_DEV_PLAN` | api | Local dev only: treat every user as `FREE`, `PRO` or `ENTERPRISE` so plan-gated features can be tried without a PayPal subscription. Unset = real subscription state. Ignored when `NODE_ENV=production`. |
 | `AUTH_JWT_SECRET` | api, dashboard | Signs/verifies session tokens. **Must be set to the same value on both apps.** Unset = insecure dev default in development; both apps refuse to start in production. Note: logout clears the cookie but JWTs aren't revocable — a leaked token stays valid until its 30-day expiry. |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | api | GitHub OAuth App credentials. Unset = "Continue with GitHub" returns 503. Callback URL to register: `<API_URL>/auth/github/callback`. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | api | Google OAuth Client credentials. Unset = "Continue with Google" returns 503. Callback URL to register: `<API_URL>/auth/google/callback`. |

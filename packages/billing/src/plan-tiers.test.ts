@@ -1,7 +1,23 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { getEffectivePlan, PLAN_LIMITS, planAllowsFormat } from "./plan-tiers";
 
 describe("getEffectivePlan", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("honors READYCHECK_DEV_PLAN outside production", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("READYCHECK_DEV_PLAN", "enterprise");
+    expect(getEffectivePlan(null)).toBe("ENTERPRISE");
+  });
+
+  it("ignores READYCHECK_DEV_PLAN in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("READYCHECK_DEV_PLAN", "ENTERPRISE");
+    expect(getEffectivePlan(null)).toBe("FREE");
+  });
+
   it("returns FREE when there is no subscription", () => {
     expect(getEffectivePlan(null)).toBe("FREE");
     expect(getEffectivePlan(undefined)).toBe("FREE");

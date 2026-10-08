@@ -45,12 +45,14 @@ export interface SubscriptionLike {
  * its cancelled period end also falls back to FREE, even though the local
  * `plan` field may still say PRO until the next webhook/read reconciles it.
  *
- * Outside production, every user is treated as ENTERPRISE so plan limits
- * don't get in the way of local development/testing -- there's no PayPal
- * sandbox subscription to set up just to try Pro-gated features.
+ * For local development, `READYCHECK_DEV_PLAN=PRO|ENTERPRISE` overrides every
+ * user's plan so trying gated features doesn't need a PayPal sandbox
+ * subscription. It's opt-in (a deploy that forgets NODE_ENV mustn't hand out
+ * free Enterprise) and ignored entirely in production.
  */
 export function getEffectivePlan(subscription: SubscriptionLike | null | undefined): PlanTier {
-  if (process.env.NODE_ENV !== "production") return "ENTERPRISE";
+  const devPlan = devPlanOverride();
+  if (devPlan) return devPlan;
   if (!subscription) return "FREE";
   if (subscription.status !== "ACTIVE") return "FREE";
   if (subscription.cancelAtPeriodEnd && subscription.currentPeriodEnd) {
@@ -58,6 +60,12 @@ export function getEffectivePlan(subscription: SubscriptionLike | null | undefin
     if (periodEnd.getTime() < Date.now()) return "FREE";
   }
   return subscription.plan;
+}
+
+function devPlanOverride(): PlanTier | null {
+  if (process.env.NODE_ENV === "production") return null;
+  const value = process.env.READYCHECK_DEV_PLAN?.trim().toUpperCase();
+  return value === "FREE" || value === "PRO" || value === "ENTERPRISE" ? value : null;
 }
 
 export function planAllowsFormat(plan: PlanTier, format: ReportFormat): boolean {
