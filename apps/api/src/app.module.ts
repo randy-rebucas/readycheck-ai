@@ -6,6 +6,10 @@ import { BillingModule } from "./billing/billing.module";
 import { HealthController } from "./health.controller";
 import { NotificationsController } from "./notifications.controller";
 import { OrgsController } from "./orgs.controller";
+import { FindingsController } from "./findings.controller";
+import { GitHubController } from "./github.controller";
+import { ProjectsController } from "./projects.controller";
+import { RulesController } from "./rules.controller";
 import { ScansController } from "./scans.controller";
 import { SessionGuard } from "./tenancy/session.guard";
 import { UsersController } from "./users.controller";
@@ -28,6 +32,10 @@ import { UsersController } from "./users.controller";
     UsersController,
     NotificationsController,
     OrgsController,
+    ProjectsController,
+    GitHubController,
+    RulesController,
+    FindingsController,
   ],
   providers: [
     {

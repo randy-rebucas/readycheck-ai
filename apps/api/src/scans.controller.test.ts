@@ -8,6 +8,7 @@ import type { Tenant } from "./tenancy/tenant";
 const prismaMock = vi.hoisted(() => ({
   subscription: { findUnique: vi.fn() },
   scan: { findMany: vi.fn(), findFirst: vi.fn(), count: vi.fn(), create: vi.fn() },
+  issue: { groupBy: vi.fn() },
 }));
 
 const tenant: Tenant = { userId: "user-1", orgId: "org-1", role: "owner", personal: true };
@@ -136,5 +137,21 @@ describe("ScansController org scoping", () => {
     expect(prismaMock.scan.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { orgId: "org-1" } })
     );
+  });
+
+  it("attaches per-severity issue counts to listed scans", async () => {
+    prismaMock.scan.findMany.mockResolvedValue([{ id: "s1" }, { id: "s2" }]);
+    prismaMock.issue.groupBy.mockResolvedValue([
+      { scanId: "s1", severity: "critical", _count: { _all: 2 } },
+      { scanId: "s1", severity: "low", _count: { _all: 1 } },
+    ]);
+    const result = await controller.list(tenant);
+    expect(prismaMock.issue.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { scanId: { in: ["s1", "s2"] } } })
+    );
+    expect(result).toEqual([
+      { id: "s1", issueCounts: { critical: 2, high: 0, medium: 0, low: 1 } },
+      { id: "s2", issueCounts: { critical: 0, high: 0, medium: 0, low: 0 } },
+    ]);
   });
 });

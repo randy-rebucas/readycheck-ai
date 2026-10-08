@@ -11,6 +11,8 @@ interface UserMenuProps {
   chipClassName: string;
   avatarClassName: string;
   nameClassName?: string;
+  /** Extra class for the dropdown, e.g. to reposition it. */
+  menuClassName?: string;
 }
 
 function initials(user: SessionUser): string {
@@ -23,6 +25,7 @@ export default function UserMenu({
   chipClassName,
   avatarClassName,
   nameClassName,
+  menuClassName,
 }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -64,7 +67,7 @@ export default function UserMenu({
       </button>
 
       {open && (
-        <div className={styles.menu} role="menu">
+        <div className={`${styles.menu} ${menuClassName ?? ""}`} role="menu">
           <div className={styles.menuHeader}>
             <span className={styles.menuName}>{user.name ?? "Account"}</span>
             {user.email && <span className={styles.menuEmail}>{user.email}</span>}

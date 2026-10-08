@@ -1,0 +1,167 @@
+.starts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.startCard {
+  display: flex;
+  gap: 1rem;
+  padding: 1.25rem 1.35rem;
+}
+
+.startLink {
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s ease;
+}
+
+.startLink:hover {
+  border-color: var(--border-strong);
+}
+
+.startLink:hover .checkTitle {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.buildIcon {
+  background: var(--tone-blue-bg) !important;
+  color: var(--tone-blue-fg) !important;
+}
+
+.checkIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--tone-green-bg);
+  color: var(--tone-green-fg);
+}
+
+.checkBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.checkTitle {
+  display: block;
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--heading);
+}
+
+.checkText {
+  display: block;
+  margin: 0;
+  max-width: 62ch;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.checkForm {
+  display: flex;
+  gap: 0.6rem;
+  max-width: 640px;
+}
+
+.inputWrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  color: var(--text-muted);
+}
+
+.inputWrap > svg {
+  position: absolute;
+  left: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+/* Two classes so it beats ui.input's padding regardless of stylesheet order. */
+.inputWrap > .repoInput {
+  padding-left: 2.4rem;
+}
+
+.checkNote {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.search {
+  position: relative;
+  display: flex;
+  width: 260px;
+  max-width: 100%;
+  color: var(--text-muted);
+}
+
+.search > svg {
+  position: absolute;
+  left: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.search > input {
+  padding-left: 2.3rem;
+}
+
+.cols {
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 1.2fr) minmax(0, 1.2fr);
+}
+
+.resume {
+  color: var(--link);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.nameCell {
+  min-width: 0;
+}
+
+.issues {
+  font-weight: 700;
+}
+
+@media (max-width: 1000px) {
+  .starts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .startCard {
+    flex-direction: column;
+  }
+
+  .checkForm {
+    flex-direction: column;
+  }
+
+  .cols {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 0.4rem;
+  }
+
+  .hideSm {
+    display: none;
+  }
+}

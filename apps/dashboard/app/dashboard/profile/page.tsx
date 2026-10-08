@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../../../lib/get-current-user";
-import AppHeader from "../../AppHeader";
-import dashStyles from "../dashboard.module.css";
 import styles from "./profile.module.css";
 import {
   ArrowRightIcon,
@@ -26,13 +24,11 @@ export default async function ProfilePage() {
   const initial = (user.name ?? user.email ?? "?").trim().charAt(0).toUpperCase();
 
   return (
-    <main className={dashStyles.page}>
-      <AppHeader user={user} />
-
+    <main>
       <div className={styles.container}>
         <Link href="/dashboard" className={styles.backLink}>
           <ArrowRightIcon size={14} style={{ transform: "rotate(180deg)" }} />
-          Back to dashboard
+          Back to projects
         </Link>
 
         <section className={styles.card}>

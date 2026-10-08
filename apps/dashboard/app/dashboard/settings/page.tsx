@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getGitHubConnection } from "../../../lib/api";
 import { getCurrentUser } from "../../../lib/get-current-user";
-import AppHeader from "../../AppHeader";
-import dashStyles from "../dashboard.module.css";
 import BillingPanel from "./BillingPanel";
+import GitHubPanel from "./GitHubPanel";
 import OrgPanel from "./OrgPanel";
 import styles from "./settings.module.css";
 import SettingsPanels from "./SettingsPanels";
@@ -20,13 +20,11 @@ export default async function SettingsPage() {
   if (!user) redirect("/login?next=/dashboard/settings");
 
   return (
-    <main className={dashStyles.page}>
-      <AppHeader user={user} />
-
+    <main>
       <div className={styles.container}>
         <Link href="/dashboard" className={styles.backLink}>
           <ArrowRightIcon size={14} style={{ transform: "rotate(180deg)" }} />
-          Back to dashboard
+          Back to projects
         </Link>
 
         <h1 className={styles.pageTitle}>Settings</h1>
@@ -47,6 +45,8 @@ export default async function SettingsPage() {
         </section>
 
         <OrgPanel currentUserId={user.id} />
+
+        <GitHubPanel initial={await getGitHubConnection().catch(() => null)} />
 
         <BillingPanel />
 

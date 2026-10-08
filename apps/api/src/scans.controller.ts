@@ -147,11 +147,30 @@ export class ScansController {
   @Get()
   async list(@CurrentTenant() tenant: Tenant, @Query("limit") limit?: string) {
     const take = Math.min(Math.max(Number(limit) || 20, 1), MAX_LIST_LIMIT);
-    return prisma.scan.findMany({
+    const scans = await prisma.scan.findMany({
       where: { orgId: tenant.orgId },
       orderBy: { createdAt: "desc" },
       take,
     });
+    if (scans.length === 0) return [];
+
+    // Per-severity counts let list views show open findings without loading
+    // every scan's full issue list.
+    const grouped = await prisma.issue.groupBy({
+      by: ["scanId", "severity"],
+      where: { scanId: { in: scans.map((s) => s.id) } },
+      _count: { _all: true },
+    });
+    const counts = new Map<string, Record<string, number>>();
+    for (const row of grouped) {
+      const entry = counts.get(row.scanId) ?? { critical: 0, high: 0, medium: 0, low: 0 };
+      entry[row.severity] = row._count._all;
+      counts.set(row.scanId, entry);
+    }
+    return scans.map((scan) => ({
+      ...scan,
+      issueCounts: counts.get(scan.id) ?? { critical: 0, high: 0, medium: 0, low: 0 },
+    }));
   }
 
   @Get(":id")

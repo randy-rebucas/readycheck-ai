@@ -1,0 +1,414 @@
+/*
+ * App shell for every /dashboard page. Tokens are declared here and inherited
+ * by page modules (and by older modules that read --surface, --border, ...).
+ * Dark is the default theme; [data-theme="light"] matches the product mockups.
+ */
+.shell {
+  --bg: #0a0f1c;
+  --surface: #111829;
+  --surface-2: #161f34;
+  --surface-hover: #172036;
+  --border: #232d44;
+  --border-strong: #35415c;
+  --text: #d5dbe8;
+  --text-muted: #9aa5bc;
+  --text-faint: #6f7a91;
+  --heading: #f2f5fb;
+  --placeholder: #5c6680;
+  --panel-bg: var(--surface);
+  --danger-text: #fca5a5;
+
+  --navy: #172c63;
+  --navy-2: #1f3772;
+  --on-navy: #ffffff;
+  --on-navy-muted: #c3cde6;
+  --red: #e0414f;
+  --red-hover: #ea5866;
+  --on-red: #ffffff;
+  --accent-soft: rgba(224, 65, 79, 0.14);
+  --focus: #8fb0ff;
+  --link: #ff8a94;
+
+  /* Legacy names used by settings/profile modules. */
+  --indigo: #8fb0ff;
+  --blue: #8fb0ff;
+  --green: #4ade80;
+
+  --tone-green-bg: rgba(74, 222, 128, 0.14);
+  --tone-green-fg: #6ee7a0;
+  --tone-blue-bg: rgba(143, 176, 255, 0.16);
+  --tone-blue-fg: #a9c1ff;
+  --tone-amber-bg: rgba(251, 191, 36, 0.16);
+  --tone-amber-fg: #fcd34d;
+  --tone-red-bg: rgba(248, 113, 113, 0.16);
+  --tone-red-fg: #fca5a5;
+  --tone-neutral-bg: rgba(154, 165, 188, 0.14);
+  --tone-neutral-fg: #b4bdd0;
+  --bar-green: #4ade80;
+  --bar-blue: #8fb0ff;
+  --bar-amber: #f59e0b;
+  --bar-red: #f87171;
+  --track: #222c43;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  display: grid;
+  /* auto: the sidebar sets its own width, and pages that hide it go full width. */
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui), system-ui, sans-serif;
+}
+
+:global([data-theme="light"]) .shell {
+  --bg: #f1f3f7;
+  --surface: #ffffff;
+  --surface-2: #f5f7fa;
+  --surface-hover: #f7f9fc;
+  --border: #dfe3ea;
+  --border-strong: #c3cad8;
+  --text: #24324f;
+  --text-muted: #55627b;
+  --text-faint: #7d8799;
+  --heading: #11285b;
+  --placeholder: #98a1b3;
+  --danger-text: #b91c1c;
+
+  --navy: #11285b;
+  --navy-2: #1d3670;
+  --on-navy: #ffffff;
+  --on-navy-muted: #c3cde3;
+  --red: #c4202f;
+  --red-hover: #a81a27;
+  --accent-soft: #fbe6e8;
+  --focus: #1f4aa8;
+  --link: #a31a26;
+
+  --indigo: #11285b;
+  --blue: #1f4aa8;
+  --green: #1d7a40;
+
+  --tone-green-bg: #e1f3e6;
+  --tone-green-fg: #1d7a40;
+  --tone-blue-bg: #e2eafa;
+  --tone-blue-fg: #1f4aa8;
+  --tone-amber-bg: #fcefc8;
+  --tone-amber-fg: #8a5800;
+  --tone-red-bg: #fde3e3;
+  --tone-red-fg: #b4161f;
+  --tone-neutral-bg: #eceff4;
+  --tone-neutral-fg: #55627b;
+  --bar-green: #1d7a40;
+  --bar-blue: #11285b;
+  --bar-amber: #94600b;
+  --bar-red: #c4202f;
+  --track: #e8ebf1;
+  --shadow: 0 1px 2px rgba(17, 40, 91, 0.06);
+}
+
+.shell :focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ---------- Sidebar ---------- */
+.sidebar {
+  width: 232px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.25rem 0.85rem;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  box-sizing: border-box;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0 0.35rem;
+  color: var(--heading);
+  font-weight: 800;
+  font-size: 1.05rem;
+  text-decoration: none;
+}
+
+.workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.workspaceLabel {
+  padding: 0 0.35rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.workspaceChip {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--heading);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.workspaceChip > span {
+  flex: 1;
+  text-align: left;
+  max-width: none;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 0.93rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.navLink:hover {
+  background: var(--surface-2);
+}
+
+.navLinkActive,
+.navLinkActive:hover {
+  background: var(--accent-soft);
+  color: var(--link);
+  font-weight: 700;
+}
+
+.navCount {
+  margin-left: auto;
+  min-width: 1.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--tone-red-bg);
+  color: var(--tone-red-fg);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* ---------- Experience mode ---------- */
+.mode {
+  margin-top: auto;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.modeLabel {
+  margin: 0 0 0.5rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.modeSwitch {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 3px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.modeOption {
+  min-height: 30px;
+  padding: 0 0.2rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modeOn {
+  background: var(--navy);
+  color: var(--on-navy);
+}
+
+.modeNote {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.sidebarFoot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.footTools {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  position: relative;
+}
+
+.iconBtn:hover {
+  color: var(--heading);
+}
+
+.userChip {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.3rem;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--heading);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.userChip:hover {
+  background: var(--surface);
+}
+
+.userAvatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--navy);
+  color: var(--on-navy);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.userName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+/* Menus anchored at the bottom of the sidebar open upward. */
+.upMenu {
+  top: auto !important;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: auto !important;
+}
+
+.main {
+  min-width: 0;
+}
+
+@media (max-width: 860px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar {
+    width: auto;
+    position: static;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .workspace {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .workspaceLabel {
+    display: none;
+  }
+
+  .nav {
+    order: 3;
+    flex-direction: row;
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .navLink {
+    white-space: nowrap;
+  }
+
+  .mode {
+    display: none;
+  }
+
+  .sidebarFoot {
+    margin: 0;
+    flex-direction: row;
+    padding: 0;
+    background: none;
+  }
+
+  .userName {
+    display: none;
+  }
+
+  .upMenu {
+    top: calc(100% + 8px) !important;
+    bottom: auto;
+    left: auto;
+    right: 0 !important;
+  }
+}

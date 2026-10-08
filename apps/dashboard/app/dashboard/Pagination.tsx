@@ -1,5 +1,5 @@
 import Link from "next/link";
-import styles from "./dashboard.module.css";
+import styles from "./ui.module.css";
 import { ChevronLeftIcon, ChevronRightIcon } from "../landing-icons";
 
 interface PaginationProps {

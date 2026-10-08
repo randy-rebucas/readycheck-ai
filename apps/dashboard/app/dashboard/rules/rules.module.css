@@ -1,0 +1,100 @@
+.rules {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rule {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1.35rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.rule:last-child {
+  border-bottom: 0;
+}
+
+.ruleOff .ruleBody,
+.ruleOff .sev,
+.ruleOff .fix {
+  opacity: 0.5;
+}
+
+.sev {
+  min-width: 4.6rem;
+  justify-content: center;
+}
+
+.ruleBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.fix {
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.toggleWrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--border-strong);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.toggle > span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--surface);
+  transition: transform 0.15s ease;
+}
+
+.toggleOn {
+  background: var(--navy);
+}
+
+:global([data-theme="dark"]) .toggleOn {
+  background: var(--focus);
+}
+
+.toggleOn > span {
+  transform: translateX(18px);
+}
+
+.toggle:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.toggleError {
+  max-width: 180px;
+  font-size: 0.75rem;
+  color: var(--tone-red-fg);
+  text-align: right;
+}
+
+@media (max-width: 700px) {
+  .fix {
+    display: none;
+  }
+}

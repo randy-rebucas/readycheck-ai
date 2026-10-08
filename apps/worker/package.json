@@ -6,11 +6,13 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@readycheck/ai": "workspace:*",
     "@readycheck/db": "workspace:*",
+    "@readycheck/github": "workspace:*",
     "@readycheck/plugins": "workspace:*",
     "@readycheck/queue": "workspace:*",
     "@readycheck/rules": "workspace:*",
@@ -22,6 +24,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.9"
   }
 }

@@ -41,6 +41,16 @@ describe("scanRepository", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
+  it("does not flag .env.example templates", () => {
+    const dir = makeTempRepo({ ".env.example": "SECRET=" });
+
+    const facts = scanRepository(dir);
+
+    expect(facts.hasEnvFiles).toBe(false);
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   it("detects Docker and CI when present", () => {
     const dir = makeTempRepo({
       Dockerfile: "FROM node:20",

@@ -18,7 +18,13 @@ function relativeTime(iso: string): string {
   return `${Math.round(hours / 24)}d ago`;
 }
 
-export default function NotificationBell({ className }: { className: string }) {
+export default function NotificationBell({
+  className,
+  panelClassName,
+}: {
+  className: string;
+  panelClassName?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -95,7 +101,7 @@ export default function NotificationBell({ className }: { className: string }) {
       </button>
 
       {open && (
-        <div className={styles.panel} role="menu">
+        <div className={`${styles.panel} ${panelClassName ?? ""}`} role="menu">
           <div className={styles.panelHead}>
             <span className={styles.panelTitle}>Notifications</span>
             {unreadCount > 0 && (

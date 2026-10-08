@@ -1,50 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import type { Issue, ScanDetail } from "../../../../lib/api";
-import type { SessionUser } from "../../../../lib/session";
-import { triggerScanAction } from "../../../actions";
-import AppHeader from "../../../AppHeader";
-import styles from "./scan-detail.module.css";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import type { FixInfo, Issue, Scan, ScanDetail } from "../../../../lib/api";
 import {
-  AlertTriangleIcon,
-  ArrowRightIcon,
-  BarChartIcon,
-  BracesIcon,
-  CheckCircleIcon,
-  CheckIcon,
-  ChevronDownIcon,
-  ClockIcon,
-  CodeIcon,
-  CubeIcon,
-  DatabaseIcon,
-  ExternalLinkIcon,
-  FileTextIcon,
-  FlaskIcon,
-  GaugeIcon,
-  HashIcon,
-  InfinityIcon,
-  LockIcon,
-  PlayCircleIcon,
-  RefreshIcon,
-  SearchIcon,
-  ShieldIcon,
-  SparklesIcon,
-  XCircleIcon,
-  ZapIcon,
-} from "../../../landing-icons";
-
-const progressLabels: Record<string, string> = {
-  cloning: "Cloning repository",
-  scanning: "Scanning files",
-  evaluating_rules: "Evaluating rules",
-  evaluating_plugins: "Checking plugins",
-  scoring: "Scoring results",
-  ai_narrative: "Generating AI assessment",
-  persisting: "Saving results",
-  done: "Finishing up",
-};
+  SEVERITIES,
+  SEVERITY_LABEL,
+  categoryName,
+  countIssues,
+  describePath,
+  projectScores,
+  relativeTime,
+  scoreGrade,
+  sortBySeverity,
+  stackSummary,
+  verdictBadge,
+} from "../../../../lib/projects";
+import { triggerScanAction } from "../../../actions";
+import { ChevronDownIcon, ChevronLeftIcon, SparklesIcon } from "../../../landing-icons";
+import { createFixAction } from "../../fixes/actions";
+import ui from "../../ui.module.css";
+import styles from "./report.module.css";
 
 const progressStages = [
   "cloning",
@@ -57,129 +33,121 @@ const progressStages = [
   "done",
 ] as const;
 
+const progressLabels: Record<string, string> = {
+  cloning: "Cloning repository",
+  scanning: "Scanning files",
+  evaluating_rules: "Evaluating rules",
+  evaluating_plugins: "Checking plugins",
+  scoring: "Scoring results",
+  ai_narrative: "Writing the assessment",
+  persisting: "Saving results",
+  done: "Finishing up",
+};
+
 const progressDescriptions: Record<string, string> = {
   cloning: "Fetching the repository",
-  scanning: "Detecting languages, frameworks, and tooling",
+  scanning: "Detecting languages, frameworks and tooling",
   evaluating_rules: "Running the core rule engine",
   evaluating_plugins: "Running framework-specific checks",
-  scoring: "Computing category scores",
-  ai_narrative: "Generating the AI assessment",
+  scoring: "Computing scores by standard",
+  ai_narrative: "Summarizing what matters most",
   persisting: "Saving results",
   done: "Wrapping up",
 };
 
-type IconComponent = (props: { size?: number }) => React.ReactNode;
-
-const CATEGORY_META: Record<string, { icon: IconComponent; color: string; gradient: string }> = {
-  architecture: {
-    icon: CubeIcon,
-    color: "#2dd4bf",
-    gradient: "linear-gradient(90deg, #10b981, #2dd4bf)",
-  },
-  security: {
-    icon: ShieldIcon,
-    color: "#fbbf24",
-    gradient: "linear-gradient(90deg, #f59e0b, #fbbf24)",
-  },
-  devops: {
-    icon: InfinityIcon,
-    color: "#f472b6",
-    gradient: "linear-gradient(90deg, #ec4899, #f472b6)",
-  },
-  testing: {
-    icon: FlaskIcon,
-    color: "#38bdf8",
-    gradient: "linear-gradient(90deg, #3b82f6, #38bdf8)",
-  },
-  documentation: {
-    icon: FileTextIcon,
-    color: "#a78bfa",
-    gradient: "linear-gradient(90deg, #8b5cf6, #a78bfa)",
-  },
-  performance: {
-    icon: ZapIcon,
-    color: "#4ade80",
-    gradient: "linear-gradient(90deg, #22c55e, #4ade80)",
-  },
-  database: {
-    icon: DatabaseIcon,
-    color: "#fbbf24",
-    gradient: "linear-gradient(90deg, #f59e0b, #fbbf24)",
-  },
-};
-
-const DEFAULT_CATEGORY = {
-  icon: GaugeIcon as IconComponent,
-  color: "#818cf8",
-  gradient: "linear-gradient(90deg, #6366f1, #818cf8)",
-};
-
-const SEVERITY_COLORS: Record<Issue["severity"], string> = {
-  critical: "#ef4444",
-  high: "#f97316",
-  medium: "#f59e0b",
-  low: "#60a5fa",
-};
-
-const SEVERITIES = ["critical", "high", "medium", "low"] as const;
-
 const DOWNLOAD_FORMATS = [
-  { format: "markdown", label: "Markdown", color: "#34d399", icon: FileTextIcon, proOnly: false },
-  { format: "html", label: "HTML", color: "#38bdf8", icon: CodeIcon, proOnly: false },
-  { format: "csv", label: "CSV", color: "#4ade80", icon: BarChartIcon, proOnly: false },
-  { format: "json", label: "JSON", color: "#a78bfa", icon: BracesIcon, proOnly: false },
-  { format: "pdf", label: "PDF", color: "#f87171", icon: FileTextIcon, proOnly: true },
+  { format: "pdf", label: "PDF", proOnly: true },
+  { format: "html", label: "HTML", proOnly: false },
+  { format: "markdown", label: "Markdown", proOnly: false },
+  { format: "csv", label: "CSV", proOnly: false },
+  { format: "json", label: "JSON", proOnly: false },
 ] as const;
 
-const VERDICT_COLORS: Record<string, string> = {
-  Ready: "#34d399",
-  "Ready with Minor Improvements": "#fbbf24",
-  "Not Ready": "#fb923c",
-  "High Risk": "#f87171",
+const SEVERITY_CLASS: Record<Issue["severity"], string> = {
+  critical: ui.sevCritical,
+  high: ui.sevHigh,
+  medium: ui.sevMedium,
+  low: ui.sevLow,
 };
 
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
-
-function formatDuration(start: string, end: string | null): string {
-  if (!end) return "—";
-  const ms = new Date(end).getTime() - new Date(start).getTime();
-  if (!Number.isFinite(ms) || ms < 0) return "—";
-  const totalSeconds = Math.round(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
-}
-
-interface ScanDetailWithProgress extends ScanDetail {
-  progress?: string | null;
-}
+const COLLAPSED_FINDINGS = 8;
 
 interface ScanDetailClientProps {
-  initialScan: ScanDetailWithProgress;
-  user: SessionUser | null;
+  initialScan: ScanDetail;
   plan: "FREE" | "PRO" | "ENTERPRISE";
+  /** Every scan of this repository, newest first. */
+  history: Scan[];
+  /** The project built here that owns this repository, if any. */
+  projectId: string | null;
+  /** How each rule's findings can be fixed, from the rule catalog. */
+  fixes: Record<string, FixInfo>;
+  /** Rules marked "doesn't apply" for this repository, with the reason. */
+  dismissed: Record<string, string>;
+  /** Rules with a fix queued, being written, or awaiting review. */
+  fixing: string[];
+  canAutoFix: boolean;
 }
 
-export default function ScanDetailClient({ initialScan, user, plan }: ScanDetailClientProps) {
-  const [scan, setScan] = useState<ScanDetailWithProgress>(initialScan);
+function FixLabel({ fix, dismissed, fixing }: { fix?: FixInfo; dismissed: boolean; fixing: boolean }) {
+  if (dismissed) return <span className={`${styles.fixLabel} ${ui["text-neutral"]}`}>Doesn&apos;t apply</span>;
+  if (fixing) return <span className={`${styles.fixLabel} ${ui["text-blue"]}`}>Fix in progress</span>;
+  if (!fix || fix.kind === "guided") {
+    return <span className={`${styles.fixLabel} ${ui["text-neutral"]}`}>Guided fix only</span>;
+  }
+  return fix.confidence === "high" ? (
+    <span className={`${styles.fixLabel} ${ui["text-green"]}`}>Auto-fix · high confidence</span>
+  ) : (
+    <span className={`${styles.fixLabel} ${ui["text-amber"]}`}>Auto-fix · review needed</span>
+  );
+}
+
+export default function ScanDetailClient({
+  initialScan,
+  plan,
+  history,
+  projectId,
+  fixes,
+  dismissed,
+  fixing,
+  canAutoFix,
+}: ScanDetailClientProps) {
+  const [scan, setScan] = useState<ScanDetail>(initialScan);
   const [error, setError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [severityFilter, setSeverityFilter] = useState<"all" | Issue["severity"]>("all");
-  const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
+  const [tab, setTab] = useState<"report" | "history">("report");
+  const [severityFilter, setSeverityFilter] = useState<"all" | "auto" | Issue["severity"]>("all");
+  const [batch, setBatch] = useState<{ ok: boolean; text: string } | null>(null);
+  const [batchPending, startBatch] = useTransition();
+  const [showAll, setShowAll] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
   const isPending = scan.status === "queued" || scan.status === "active";
+  const { name, location } = describePath(scan.path);
+  const isGitUrl = /^https?:\/\//.test(scan.path);
+
+  useEffect(() => {
+    if (!isPending) return undefined;
+    let mounted = true;
+    const refresh = async () => {
+      try {
+        const res = await fetch(`/api/scans/${scan.id}`);
+        if (!res.ok) throw new Error(`Failed to refresh scan: ${res.status}`);
+        const updated: ScanDetail = await res.json();
+        if (mounted) {
+          setScan(updated);
+          setError(null);
+        }
+      } catch (err) {
+        if (mounted) setError(err instanceof Error ? err.message : "Failed to refresh scan");
+      }
+    };
+    const timer = window.setInterval(refresh, 2000);
+    refresh();
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, [isPending, scan.id]);
 
   async function handleCancel() {
     setIsCancelling(true);
@@ -194,455 +162,446 @@ export default function ScanDetailClient({ initialScan, user, plan }: ScanDetail
       setIsCancelling(false);
     }
   }
-  const isGitUrl = /^https?:\/\//.test(scan.path);
 
-  const progressText = useMemo(() => {
-    if (scan.progress) {
-      return `Mission: ${progressLabels[scan.progress] ?? String(scan.progress)}`;
-    }
-    if (scan.status === "queued") {
-      return "Mission queued";
-    }
-    if (scan.status === "active") {
-      return "Mission in progress";
-    }
-    return null;
-  }, [scan.progress, scan.status]);
+  const sortedIssues = useMemo(() => sortBySeverity(scan.issues), [scan.issues]);
+  const counts = useMemo(() => countIssues(scan.issues), [scan.issues]);
+  const visibleIssues =
+    severityFilter === "all"
+      ? sortedIssues
+      : severityFilter === "auto"
+        ? sortedIssues.filter((i) => fixes[i.ruleId] && fixes[i.ruleId].kind !== "guided")
+        : sortedIssues.filter((i) => i.severity === severityFilter);
+  const shownIssues = showAll ? visibleIssues : visibleIssues.slice(0, COLLAPSED_FINDINGS);
 
-  const progressValue = useMemo(() => {
-    if (scan.progress) {
-      const index = progressStages.indexOf(scan.progress as (typeof progressStages)[number]);
-      return index === -1 ? 100 : Math.round(((index + 1) / progressStages.length) * 100);
-    }
-    if (scan.status === "active") return 28;
-    if (scan.status === "queued") return 12;
-    return 0;
-  }, [scan.progress, scan.status]);
-
-  const currentStageIndex = useMemo(() => {
-    if (scan.progress) {
-      return progressStages.indexOf(scan.progress as (typeof progressStages)[number]);
-    }
-    if (scan.status === "queued") return 0;
-    if (scan.status === "active") return 1;
-    return -1;
-  }, [scan.progress, scan.status]);
-
-  const stageDescription = useMemo(() => {
-    if (!isPending) return null;
-    if (scan.progress) return progressDescriptions[scan.progress] ?? null;
-    return "Exploring the repository";
-  }, [isPending, scan.progress]);
-
-  useEffect(() => {
-    if (!isPending) return undefined;
-
-    let mounted = true;
-    const refresh = async () => {
-      setIsRefreshing(true);
-      try {
-        const res = await fetch(`/api/scans/${scan.id}`);
-        if (!res.ok) {
-          throw new Error(`Failed to refresh scan: ${res.status}`);
-        }
-        const updated: ScanDetailWithProgress = await res.json();
-        if (mounted) {
-          setScan(updated);
-          setError(null);
-        }
-      } catch (err) {
-        if (mounted) {
-          setError(err instanceof Error ? err.message : "Failed to refresh scan");
-        }
-      } finally {
-        if (mounted) {
-          setIsRefreshing(false);
-        }
-      }
+  // What fixing the urgent findings is worth, relative to the stored score so
+  // findings from plugins (outside the core weights) don't skew it.
+  const projection = useMemo(() => {
+    if (scan.overallScore == null || scan.issues.length === 0) return null;
+    const urgent = scan.issues.filter((i) => i.severity === "critical" || i.severity === "high");
+    const target = urgent.length > 0 ? urgent : scan.issues;
+    const base = projectScores(scan.issues, []).overall;
+    const after = projectScores(scan.issues, target).overall;
+    return {
+      count: target.length,
+      urgentOnly: urgent.length > 0,
+      score: Math.min(100, scan.overallScore + (after - base)),
     };
+  }, [scan.issues, scan.overallScore]);
 
-    const timer = window.setInterval(refresh, 2000);
-    refresh();
-    return () => {
-      mounted = false;
-      window.clearInterval(timer);
-    };
-  }, [isPending, scan.id]);
+  const badge = verdictBadge(scan.verdict);
+  const stack = stackSummary(scan);
+  const firstFinding = sortedIssues[0];
+  const autoFixable = scan.issues.filter((i) => fixes[i.ruleId] && fixes[i.ruleId].kind !== "guided").length;
+  // "Safe" = deterministic, high-confidence fixes not already dismissed or in progress.
+  const safeRules = [
+    ...new Set(
+      scan.issues
+        .filter((i) => fixes[i.ruleId]?.confidence === "high" && !dismissed[i.ruleId] && !fixing.includes(i.ruleId))
+        .map((i) => i.ruleId)
+    ),
+  ];
 
-  const severityCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const issue of scan.issues) {
-      counts[issue.severity] = (counts[issue.severity] ?? 0) + 1;
-    }
-    return counts;
-  }, [scan.issues]);
+  function fixSafe() {
+    setBatch(null);
+    startBatch(async () => {
+      const result = await createFixAction(scan.id, safeRules);
+      const count = `${safeRules.length} ${safeRules.length === 1 ? "finding" : "findings"}`;
+      setBatch(
+        result.ok
+          ? { ok: true, text: `Preparing one pull request for ${count}. Track it in the Fix Center.` }
+          : { ok: false, text: result.error }
+      );
+    });
+  }
 
-  const visibleIssues = useMemo(
-    () =>
-      severityFilter === "all"
-        ? scan.issues
-        : scan.issues.filter((issue) => issue.severity === severityFilter),
-    [scan.issues, severityFilter]
-  );
-
-  const verdictColor = (scan.verdict && VERDICT_COLORS[scan.verdict]) || "#34d399";
+  const currentStageIndex = scan.progress
+    ? progressStages.indexOf(scan.progress as (typeof progressStages)[number])
+    : scan.status === "active"
+      ? 1
+      : 0;
+  const progressValue = Math.round(((Math.max(currentStageIndex, 0) + 1) / progressStages.length) * 100);
 
   return (
-    <main className={styles.page}>
-      <AppHeader user={user} active="scans" />
-
-      <div className={styles.container}>
-        <Link href="/dashboard/scans" className={styles.backLink}>
-          <ArrowRightIcon size={14} style={{ transform: "rotate(180deg)" }} />
-          All scans
-        </Link>
-
-        <div className={styles.headGrid}>
-          <div>
-            <div className={styles.titleRow}>
-              <h1 className={styles.repoTitle}>{scan.path}</h1>
-              {isGitUrl && (
-                <a
-                  href={scan.path.replace(/\.git$/, "")}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={styles.extLink}
-                  aria-label="Open repository"
-                >
-                  <ExternalLinkIcon size={17} />
-                </a>
-              )}
+    <>
+      <header className={styles.topbar}>
+        <div className={styles.topRow}>
+          <div className={styles.titleBlock}>
+            <Link href="/dashboard" className={ui.backLink}>
+              <ChevronLeftIcon size={15} />
+              Projects
+            </Link>
+            <span className={styles.titleDivider} aria-hidden="true" />
+            <div className={styles.titleText}>
+              <h1 className={styles.title}>{name}</h1>
+              <p className={styles.subtitle} suppressHydrationWarning>
+                {isGitUrl ? (
+                  <a href={scan.path.replace(/\.git$/, "")} target="_blank" rel="noreferrer">
+                    {location}
+                  </a>
+                ) : (
+                  location
+                )}
+                {scan.completedAt && ` · scanned ${relativeTime(scan.completedAt).toLowerCase()}`}
+              </p>
             </div>
+          </div>
 
+          <div className={ui.actions}>
             {scan.status === "completed" && (
-              <div className={styles.statusBanner}>
-                <span className={styles.statusLeft} style={{ color: "#34d399" }}>
-                  <CheckCircleIcon size={26} />
-                  Completed
-                </span>
-                {scan.overallScore !== null && (
-                  <span className={styles.bigScore}>{scan.overallScore}%</span>
-                )}
-                {scan.verdict && (
-                  <>
-                    <span className={styles.bannerDivider} />
-                    <span className={styles.bannerVerdict} style={{ color: verdictColor }}>
-                      {scan.verdict}
-                    </span>
-                  </>
-                )}
-              </div>
-            )}
-
-            {scan.status === "failed" && (
-              <div className={`${styles.statusBanner} ${styles.statusBannerFailed}`}>
-                <span className={styles.statusLeft} style={{ color: "#f87171" }}>
-                  <AlertTriangleIcon size={24} />
-                  Failed
-                </span>
-                <span className={styles.failedText} style={{ marginBottom: 0 }}>
-                  {scan.errorMessage ?? "The scan could not be completed."}
-                </span>
-              </div>
-            )}
-
-            {scan.status === "cancelled" && (
-              <div className={`${styles.statusBanner} ${styles.statusBannerCancelled}`}>
-                <span className={styles.statusLeft} style={{ color: "#9aa1b1" }}>
-                  <XCircleIcon size={24} />
-                  Cancelled
-                </span>
-                <span className={styles.failedText} style={{ marginBottom: 0 }}>
-                  This scan was cancelled before it finished.
-                </span>
-              </div>
-            )}
-
-            {isPending && (
-              <div className={styles.progressCard}>
-                <div className={styles.progressHead}>
-                  <div>
-                    <div className={styles.progressTitle}>
-                      <span className={styles.progressIconWrap}>
-                        <SearchIcon size={15} />
+              <details className={styles.download}>
+                <summary className={ui.btn}>
+                  Download report <ChevronDownIcon size={14} />
+                </summary>
+                <div className={styles.downloadMenu} role="menu">
+                  {DOWNLOAD_FORMATS.map(({ format, label, proOnly }) =>
+                    proOnly && plan === "FREE" ? (
+                      <span key={format} className={styles.downloadItemDisabled}>
+                        {label} <span className={styles.proTag}>Pro</span>
                       </span>
-                      {progressText}
-                    </div>
-                    <div className={styles.progressSub}>
-                      {stageDescription ?? "Exploring the repository"}
-                    </div>
-                  </div>
-                  <span className={styles.progressHeadRight}>
-                    <span className={styles.liveBadge}>{isRefreshing ? "Live" : "Active"}</span>
-                    <button
-                      type="button"
-                      className={styles.cancelBtn}
-                      onClick={handleCancel}
-                      disabled={isCancelling}
-                    >
-                      <XCircleIcon size={14} />
-                      {isCancelling ? "Cancelling…" : "Cancel scan"}
-                    </button>
-                  </span>
-                </div>
-                {cancelError && <p className={styles.errorText}>{cancelError}</p>}
-
-                <div className={styles.progressTrack}>
-                  <div className={styles.progressFill} style={{ width: `${progressValue}%` }} />
-                </div>
-
-                <div className={styles.stageChips}>
-                  {progressStages.map((stage, index) => {
-                    const isActive = index === currentStageIndex;
-                    const isComplete = index < currentStageIndex;
-                    return (
-                      <span
-                        key={stage}
-                        className={`${styles.stageChip} ${
-                          isActive
-                            ? styles.stageChipActive
-                            : isComplete
-                              ? styles.stageChipDone
-                              : ""
-                        }`}
+                    ) : (
+                      <a
+                        key={format}
+                        role="menuitem"
+                        href={`/dashboard/scans/${scan.id}/report?format=${format}`}
+                        className={styles.downloadItem}
                       >
-                        {isComplete && <CheckIcon size={11} />}
-                        {progressLabels[stage]}
+                        {label}
+                      </a>
+                    )
+                  )}
+                </div>
+              </details>
+            )}
+            {!isPending && (
+              <form action={triggerScanAction}>
+                <input type="hidden" name="path" value={scan.path} />
+                <button type="submit" className={ui.btn}>
+                  Re-scan
+                </button>
+              </form>
+            )}
+            {scan.status === "completed" && canAutoFix && safeRules.length > 0 && !batch?.ok ? (
+              <button type="button" className={ui.btnPrimary} onClick={fixSafe} disabled={batchPending}>
+                {batchPending ? "Starting…" : `Fix ${safeRules.length} safe ${safeRules.length === 1 ? "issue" : "issues"}`}
+              </button>
+            ) : scan.status === "completed" && firstFinding && (
+              <Link
+                href={`/dashboard/scans/${scan.id}/findings/${firstFinding.id}`}
+                className={ui.btnPrimary}
+              >
+                Start fixing
+              </Link>
+            )}
+          </div>
+        </div>
+
+        <nav className={styles.tabs} aria-label="Project sections">
+          {projectId && (
+            <>
+              <Link href={`/dashboard/projects/${projectId}/blueprint`} className={styles.tab}>
+                Blueprint
+              </Link>
+              <Link href={`/dashboard/projects/${projectId}`} className={styles.tab}>
+                Lifecycle
+              </Link>
+            </>
+          )}
+          <button
+            type="button"
+            className={`${styles.tab} ${tab === "report" ? styles.tabActive : ""}`}
+            aria-current={tab === "report" ? "page" : undefined}
+            onClick={() => setTab("report")}
+          >
+            Standards report
+          </button>
+          <button
+            type="button"
+            className={`${styles.tab} ${tab === "history" ? styles.tabActive : ""}`}
+            aria-current={tab === "history" ? "page" : undefined}
+            onClick={() => setTab("history")}
+          >
+            Scan history <span className={styles.tabCount}>{history.length}</span>
+          </button>
+        </nav>
+      </header>
+
+      <main className={ui.page}>
+        {error && <p className={ui.error}>{error}</p>}
+        {batch && (
+          <p className={batch.ok ? styles.notice : ui.error} role="status">
+            {batch.text}{" "}
+            {batch.ok && (
+              <Link href="/dashboard/fixes" className={ui.textLink}>
+                Open Fix Center
+              </Link>
+            )}
+          </p>
+        )}
+
+        {tab === "history" && (
+          <section className={ui.card}>
+            <div className={ui.cardHead}>
+              <h2 className={ui.cardTitle}>Scan history</h2>
+            </div>
+            <div className={ui.table}>
+              {history.map((s) => (
+                <Link
+                  key={s.id}
+                  href={`/dashboard/scans/${s.id}`}
+                  className={`${ui.tableRow} ${styles.historyCols}`}
+                  aria-current={s.id === scan.id ? "page" : undefined}
+                >
+                  <span>
+                    <span className={ui.rowTitle}>
+                      {new Date(s.createdAt).toLocaleString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    <span className={ui.rowSub} suppressHydrationWarning>
+                      {s.id === scan.id ? "Viewing now" : relativeTime(s.createdAt)}
+                    </span>
+                  </span>
+                  <span className={ui.scoreCell}>
+                    {s.overallScore ?? "—"}
+                    {s.verdict && (
+                      <span className={`${ui.badge} ${ui[`tone-${verdictBadge(s.verdict).tone}`]}`}>
+                        {verdictBadge(s.verdict).label}
                       </span>
+                    )}
+                  </span>
+                  <span className={ui.muted}>{s.status}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {tab === "report" && isPending && (
+          <section className={`${ui.card} ${ui.cardPad} ${styles.progress}`} aria-live="polite">
+            <div className={styles.progressHead}>
+              <div>
+                <p className={ui.eyebrow}>Scan in progress</p>
+                <h2 className={ui.cardTitle}>
+                  {scan.progress ? progressLabels[scan.progress] ?? scan.progress : "Waiting in the queue"}
+                </h2>
+                <p className={ui.cardSub}>
+                  {scan.progress ? progressDescriptions[scan.progress] : "The scan starts as soon as a worker is free."}
+                </p>
+              </div>
+              <button type="button" className={ui.btn} onClick={handleCancel} disabled={isCancelling}>
+                {isCancelling ? "Cancelling…" : "Cancel scan"}
+              </button>
+            </div>
+            {cancelError && <p className={ui.error}>{cancelError}</p>}
+            <div
+              className={styles.track}
+              role="progressbar"
+              aria-valuenow={progressValue}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div className={styles.trackFill} style={{ width: `${progressValue}%` }} />
+            </div>
+            <ol className={styles.stages}>
+              {progressStages.map((stage, index) => (
+                <li
+                  key={stage}
+                  className={
+                    index < currentStageIndex
+                      ? styles.stageDone
+                      : index === currentStageIndex
+                        ? styles.stageActive
+                        : undefined
+                  }
+                >
+                  {progressLabels[stage]}
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
+
+        {tab === "report" && scan.status === "failed" && (
+          <p className={ui.error}>
+            <strong>Scan failed.</strong> {scan.errorMessage ?? "The scan could not be completed."}
+          </p>
+        )}
+
+        {tab === "report" && scan.status === "cancelled" && (
+          <section className={`${ui.card} ${ui.cardPad}`}>
+            <h2 className={ui.cardTitle}>Scan cancelled</h2>
+            <p className={ui.cardSub}>This scan was stopped before it finished. Re-scan to get a report.</p>
+          </section>
+        )}
+
+        {tab === "report" && scan.status === "completed" && (
+          <>
+            <div className={styles.summaryGrid}>
+              <section className={styles.scoreCard} aria-labelledby="readiness-label">
+                <p id="readiness-label" className={styles.scoreEyebrow}>
+                  Production readiness
+                </p>
+                <p className={styles.scoreValue}>
+                  {scan.overallScore ?? "—"}
+                  <span>/ 100</span>
+                </p>
+                <span className={`${ui.badge} ${ui[`tone-${badge.tone}`]}`}>{badge.label}</span>
+                <p className={styles.scoreText}>
+                  {counts.critical > 0
+                    ? `${counts.critical} critical ${counts.critical === 1 ? "finding keeps" : "findings keep"} this app from being production-ready, whatever the score. `
+                    : scan.verdict === "Ready"
+                      ? "No blocking findings. "
+                      : ""}
+                  {projection &&
+                    `Fixing the ${projection.count} ${projection.urgentOnly ? "critical and high " : ""}${
+                      projection.count === 1 ? "finding" : "findings"
+                    } lifts it to about ${projection.score}.`}
+                </p>
+                {stack && <p className={styles.scoreMeta}>{stack}</p>}
+              </section>
+
+              <section className={`${ui.card} ${ui.cardPad}`} aria-labelledby="by-standard">
+                <h2 id="by-standard" className={ui.cardTitle}>
+                  Scores by standard
+                </h2>
+                <div className={styles.standards}>
+                  {scan.categoryScores.map((c) => {
+                    const grade = scoreGrade(c.score);
+                    return (
+                      <div key={c.id} className={styles.standard}>
+                        <div className={styles.standardHead}>
+                          <span>{categoryName(c.category)}</span>
+                          <span className={`${styles.standardScore} ${ui[`text-${grade.tone}`]}`}>
+                            {c.score} · {grade.label}
+                          </span>
+                        </div>
+                        <div className={styles.bar}>
+                          <div
+                            className={`${styles.barFill} ${styles[`bar-${grade.tone}`]}`}
+                            style={{ width: `${c.score}%` }}
+                          />
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
+              </section>
+            </div>
 
-              </div>
+            {scan.aiNarrative && (
+              <section className={`${ui.card} ${ui.cardPad} ${styles.assessment}`}>
+                <span className={styles.assessmentIcon}>
+                  <SparklesIcon size={18} />
+                </span>
+                <div>
+                  <h2 className={ui.cardTitle}>Assessment</h2>
+                  <p className={styles.assessmentText}>{scan.aiNarrative}</p>
+                </div>
+              </section>
             )}
 
-            {scan.status === "completed" && (
-              <div className={styles.downloadRow}>
-                <span>Download report:</span>
-                {DOWNLOAD_FORMATS.filter((f) => !f.proOnly || plan !== "FREE").map(
-                  ({ format, label, color, icon: Icon }) => (
-                    <a
-                      key={format}
-                      href={`/dashboard/scans/${scan.id}/report?format=${format}`}
-                      className={styles.dlBtn}
-                      style={{ color, borderColor: `${color}66` }}
-                    >
-                      <Icon size={13} />
-                      {label.toUpperCase()}
-                    </a>
-                  )
-                )}
+            <section className={ui.card} aria-labelledby="findings-title">
+              <div className={ui.cardHead}>
+                <h2 id="findings-title" className={ui.cardTitle}>
+                  Findings, most urgent first
+                </h2>
+                <span className={ui.muted}>
+                  {scan.issues.length} {scan.issues.length === 1 ? "finding" : "findings"}
+                  {autoFixable > 0 && ` · ${autoFixable} can be fixed automatically`}
+                </span>
               </div>
-            )}
-          </div>
 
-          <aside className={styles.metaCard}>
-            <div className={styles.metaRow}>
-              <span className={styles.metaIcon}>
-                <HashIcon size={15} />
-              </span>
-              <span className={styles.metaLabel}>Scan ID</span>
-              <span className={styles.metaValue} title={scan.id}>
-                {scan.id}
-              </span>
-            </div>
-            <div className={styles.metaRow}>
-              <span className={styles.metaIcon}>
-                <PlayCircleIcon size={15} />
-              </span>
-              <span className={styles.metaLabel}>Scan started</span>
-              <span className={styles.metaValue}>{formatDate(scan.createdAt)}</span>
-            </div>
-            <div className={styles.metaRow}>
-              <span className={styles.metaIcon}>
-                <CheckCircleIcon size={15} />
-              </span>
-              <span className={styles.metaLabel}>Scan completed</span>
-              <span className={styles.metaValue}>{formatDate(scan.completedAt)}</span>
-            </div>
-            <div className={styles.metaRow}>
-              <span className={styles.metaIcon}>
-                <ClockIcon size={15} />
-              </span>
-              <span className={styles.metaLabel}>Duration</span>
-              <span className={styles.metaValue}>
-                {formatDuration(scan.createdAt, scan.completedAt)}
-              </span>
-            </div>
-          </aside>
-        </div>
-
-        {scan.status === "completed" && (
-          <div className={styles.aiCard}>
-            <span className={styles.aiIcon}>
-              <SparklesIcon size={22} />
-            </span>
-            <div>
-              <h2 className={styles.aiTitle}>AI Assessment</h2>
-              {scan.aiNarrative ? (
-                <p className={styles.aiText}>{scan.aiNarrative}</p>
+              {scan.issues.length === 0 ? (
+                <div className={ui.empty}>No findings. Nothing to fix right now.</div>
               ) : (
-                <p className={styles.aiText}>
-                  No AI narrative available for this scan (no AI provider configured, or
-                  generation failed).
-                  <br />
-                  The score and issues above are unaffected &mdash; they&apos;re computed
-                  deterministically by the rule engine.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {scan.categoryScores.length > 0 && (
-          <>
-            <div className={styles.sectionHead}>
-              <span className={styles.sectionIcon}>
-                <BarChartIcon size={19} />
-              </span>
-              <h2 className={styles.sectionTitle}>Category Scores</h2>
-            </div>
-            <div className={styles.catGrid}>
-              {scan.categoryScores.map((c) => {
-                const meta = CATEGORY_META[c.category.toLowerCase()] ?? DEFAULT_CATEGORY;
-                const Icon = meta.icon;
-                return (
-                  <div key={c.id} className={styles.catCard}>
-                    <div className={styles.catHead}>
-                      <span
-                        className={styles.catIcon}
-                        style={{ background: `${meta.color}1f`, color: meta.color }}
-                      >
-                        <Icon size={17} />
-                      </span>
-                      <span className={styles.catName}>{c.category}</span>
-                      <span className={styles.catScore}>{c.score}%</span>
-                    </div>
-                    <div className={styles.barTrack}>
-                      <div
-                        className={styles.barFill}
-                        style={{ width: `${c.score}%`, background: meta.gradient }}
-                      />
-                    </div>
+                <>
+                  <div className={`${ui.chips} ${styles.filters}`} role="group" aria-label="Filter by severity">
+                    <button
+                      type="button"
+                      className={`${ui.chip} ${severityFilter === "all" ? ui.chipActive : ""}`}
+                      aria-pressed={severityFilter === "all"}
+                      onClick={() => setSeverityFilter("all")}
+                    >
+                      All {scan.issues.length}
+                    </button>
+                    {SEVERITIES.map((severity) =>
+                      counts[severity] === 0 ? null : (
+                        <button
+                          key={severity}
+                          type="button"
+                          className={`${ui.chip} ${severityFilter === severity ? ui.chipActive : ""}`}
+                          aria-pressed={severityFilter === severity}
+                          onClick={() => setSeverityFilter(severityFilter === severity ? "all" : severity)}
+                        >
+                          {SEVERITY_LABEL[severity]} {counts[severity]}
+                        </button>
+                      )
+                    )}
+                    {autoFixable > 0 && (
+                      <>
+                        <span className={ui.chipDivider} aria-hidden="true" />
+                        <button
+                          type="button"
+                          className={`${ui.chip} ${severityFilter === "auto" ? ui.chipActive : ""}`}
+                          aria-pressed={severityFilter === "auto"}
+                          onClick={() => setSeverityFilter(severityFilter === "auto" ? "all" : "auto")}
+                        >
+                          Auto-fixable
+                        </button>
+                      </>
+                    )}
                   </div>
-                );
-              })}
-            </div>
+
+                  <ul className={styles.findings}>
+                    {shownIssues.map((issue) => (
+                      <li
+                        key={issue.id}
+                        className={`${styles.finding} ${
+                          issue.severity === "critical" && !dismissed[issue.ruleId] ? styles.findingCritical : ""
+                        } ${dismissed[issue.ruleId] ? styles.findingDismissed : ""}`}
+                      >
+                        <span className={`${ui.badge} ${styles.sevPill} ${SEVERITY_CLASS[issue.severity]}`}>
+                          {SEVERITY_LABEL[issue.severity]}
+                        </span>
+                        <div className={styles.findingBody}>
+                          <p className={styles.findingTitle}>{issue.message}</p>
+                          <p className={styles.findingSub}>
+                            {issue.ruleId} · {categoryName(issue.category)}
+                          </p>
+                        </div>
+                        <FixLabel
+                          fix={fixes[issue.ruleId]}
+                          dismissed={Boolean(dismissed[issue.ruleId])}
+                          fixing={fixing.includes(issue.ruleId)}
+                        />
+                        <Link
+                          href={`/dashboard/scans/${scan.id}/findings/${issue.id}`}
+                          className={`${ui.btn} ${ui.btnSm}`}
+                          aria-label={`Open finding: ${issue.message}`}
+                        >
+                          Open
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {visibleIssues.length > COLLAPSED_FINDINGS && (
+                    <div className={styles.showAll}>
+                      <button type="button" className={ui.textLink} onClick={() => setShowAll((v) => !v)}>
+                        {showAll ? "Show fewer" : `Show all ${visibleIssues.length} findings`}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
           </>
         )}
-
-        <div className={styles.issuesHead}>
-          <span className={styles.sectionIcon} style={{ color: "#f87171" }}>
-            <AlertTriangleIcon size={19} />
-          </span>
-          <h2 className={styles.sectionTitle}>Issues ({scan.issues.length})</h2>
-          {scan.issues.length > 0 && (
-            <div className={styles.issueFilters}>
-              <button
-                type="button"
-                className={styles.filterChip}
-                onClick={() => setSeverityFilter("all")}
-                style={{
-                  color: "#a5b4fc",
-                  borderColor:
-                    severityFilter === "all" ? "#6366f1" : undefined,
-                  background:
-                    severityFilter === "all" ? "rgba(99, 102, 241, 0.12)" : undefined,
-                }}
-              >
-                All ({scan.issues.length})
-              </button>
-              {SEVERITIES.map((severity) => {
-                const count = severityCounts[severity] ?? 0;
-                if (count === 0) return null;
-                const color = SEVERITY_COLORS[severity];
-                const isActive = severityFilter === severity;
-                return (
-                  <button
-                    key={severity}
-                    type="button"
-                    className={styles.filterChip}
-                    onClick={() => setSeverityFilter(isActive ? "all" : severity)}
-                    style={{
-                      color,
-                      borderColor: isActive ? color : undefined,
-                      background: isActive ? `${color}1f` : undefined,
-                    }}
-                  >
-                    {severity.charAt(0).toUpperCase() + severity.slice(1)} ({count})
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {scan.issues.length === 0 && !isPending && (
-          <p className={styles.noIssues}>No issues found.</p>
-        )}
-
-        <div className={styles.issueList}>
-          {visibleIssues.map((issue) => {
-            const meta = CATEGORY_META[issue.category.toLowerCase()] ?? DEFAULT_CATEGORY;
-            const Icon = meta.icon;
-            const sevColor = SEVERITY_COLORS[issue.severity] ?? "#9aa1b1";
-            const isExpanded = expandedIssue === issue.id;
-            return (
-              <div key={issue.id} className={styles.issueCard}>
-                <span
-                  className={styles.sevBadge}
-                  style={{
-                    color: sevColor,
-                    borderColor: `${sevColor}55`,
-                    background: `${sevColor}12`,
-                  }}
-                >
-                  <Icon size={18} />
-                  {issue.severity}
-                </span>
-                <div className={styles.issueBody}>
-                  <p className={styles.issueTitle}>
-                    {issue.ruleId} &mdash; {issue.message}
-                  </p>
-                  <p className={styles.issueRec}>{issue.recommendation}</p>
-                  {isExpanded && (
-                    <p className={styles.issueEffort}>
-                      Estimated effort: <strong>{issue.estimatedEffort || "unknown"}</strong>
-                    </p>
-                  )}
-                </div>
-                <span className={styles.issueRight}>
-                  <span className={styles.catChip}>{issue.category}</span>
-                  <button
-                    type="button"
-                    className={`${styles.expandBtn} ${isExpanded ? styles.expandBtnOpen : ""}`}
-                    onClick={() => setExpandedIssue(isExpanded ? null : issue.id)}
-                    aria-label={isExpanded ? "Collapse issue details" : "Expand issue details"}
-                    aria-expanded={isExpanded}
-                  >
-                    <ChevronDownIcon size={17} />
-                  </button>
-                </span>
-              </div>
-            );
-          })}
-        </div>
-
-        {scan.status === "completed" && (
-          <form action={triggerScanAction} className={styles.ctaBanner}>
-            <input type="hidden" name="path" value={scan.path} />
-            <span className={styles.ctaText}>
-              <SparklesIcon size={18} />
-              Improve your score! Fix the issues above to increase your production readiness.
-            </span>
-            <button type="submit" className={styles.rescanBtn}>
-              Rescan Repository <RefreshIcon size={15} />
-            </button>
-          </form>
-        )}
-
-        {error && <p className={styles.errorText}>{error}</p>}
-      </div>
-    </main>
+      </main>
+    </>
   );
 }

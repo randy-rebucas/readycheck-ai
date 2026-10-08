@@ -4,13 +4,21 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Worker, type Job } from "bullmq";
 import simpleGit from "simple-git";
-import { QUEUE_NAMES, getRedisConnection, type ScanJobData } from "@readycheck/queue";
-import { scanRepository } from "@readycheck/scanner";
-import { coreRules, evaluateRules } from "@readycheck/rules";
-import { evaluatePlugins } from "@readycheck/plugins";
+import {
+  QUEUE_NAMES,
+  getRedisConnection,
+  type BuildJobData,
+  type FixJobData,
+  type ScanJobData,
+} from "@readycheck/queue";
 import { scoreIssues } from "@readycheck/scoring";
 import { getPrismaClient } from "@readycheck/db";
 import { generateNarrative, getAIProvider } from "@readycheck/ai";
+import { redactToken } from "@readycheck/github";
+import { analyze } from "./analyze";
+import { processSlice, startNextSlice } from "./build-job";
+import { JobError } from "./checkout";
+import { processFix } from "./fix-job";
 
 const prisma = getPrismaClient();
 const aiProvider = getAIProvider();
@@ -51,10 +59,10 @@ async function processScan(job: Job<ScanJobData>) {
   let clonedDir: string | undefined;
   const label = scanLabel(repoUrl ?? path ?? scanId);
 
-  const { orgId } = await prisma.scan.update({
+  const { orgId, org } = await prisma.scan.update({
     where: { id: scanId },
     data: { status: "active" },
-    select: { orgId: true },
+    select: { orgId: true, org: { select: { disabledRules: true } } },
   });
 
   try {
@@ -72,18 +80,11 @@ async function processScan(job: Job<ScanJobData>) {
     await checkCancelled(scanId);
     await job.updateProgress({ stage: "scanning" });
     await prisma.scan.update({ where: { id: scanId }, data: { progress: "scanning" } });
-    const facts = scanRepository(scanPath);
-
     await checkCancelled(scanId);
     await job.updateProgress({ stage: "evaluating_rules" });
     await prisma.scan.update({ where: { id: scanId }, data: { progress: "evaluating_rules" } });
-    const coreIssues = evaluateRules(coreRules, facts);
-
-    await checkCancelled(scanId);
-    await job.updateProgress({ stage: "evaluating_plugins" });
-    await prisma.scan.update({ where: { id: scanId }, data: { progress: "evaluating_plugins" } });
-    const pluginIssues = evaluatePlugins(scanPath, facts);
-    const issues = [...coreIssues, ...pluginIssues];
+    // Core rules and framework plugins, minus rules the org switched off.
+    const { facts, issues } = analyze(scanPath, org?.disabledRules);
 
     await checkCancelled(scanId);
     await job.updateProgress({ stage: "scoring" });
@@ -207,7 +208,48 @@ worker.on("failed", async (job, err) => {
   }
 });
 
-console.log("ReadyCheck worker listening on queue:", QUEUE_NAMES.SCAN);
+// Fixes and build slices clone, edit and push; the AI parts can run for
+// minutes, so they get their own low-concurrency workers.
+function failureMessage(err: Error): string {
+  return redactToken(err instanceof JobError ? err.message : `Unexpected error: ${err.message}`);
+}
+
+const fixWorker = new Worker<FixJobData>(QUEUE_NAMES.FIX, processFix, {
+  connection: getRedisConnection(),
+  concurrency: 2,
+  lockDuration: 10 * 60_000,
+});
+
+fixWorker.on("failed", async (job, err) => {
+  if (!job) return;
+  console.error(`[worker] fix ${job.data.fixRequestId} failed:`, err.message);
+  await prisma.fixRequest
+    .update({ where: { id: job.data.fixRequestId }, data: { status: "failed", error: failureMessage(err) } })
+    .catch(() => undefined);
+});
+
+const buildWorker = new Worker<BuildJobData>(QUEUE_NAMES.BUILD, processSlice, {
+  connection: getRedisConnection(),
+  concurrency: 2,
+  lockDuration: 30 * 60_000,
+});
+
+buildWorker.on("failed", async (job, err) => {
+  if (!job) return;
+  console.error(`[worker] slice ${job.data.sliceId} failed:`, err.message);
+  // A failed slice stops the chain: later slices may build on it. Retry resumes it.
+  await prisma.buildSlice
+    .update({ where: { id: job.data.sliceId }, data: { status: "failed", error: failureMessage(err) } })
+    .catch(() => undefined);
+});
+
+// Keeps the build chain moving if the worker restarted between slices.
+void prisma.buildSlice
+  .findMany({ where: { status: "queued" }, distinct: ["projectId"], select: { projectId: true } })
+  .then((rows) => Promise.all(rows.map((r) => startNextSlice(r.projectId))))
+  .catch((err) => console.error("[worker] could not resume build queues:", err));
+
+console.log("ReadyCheck worker listening on queues:", Object.values(QUEUE_NAMES).join(", "));
 console.log(
   aiProvider
     ? `AI narrative generation enabled (provider: ${aiProvider.name})`
@@ -224,7 +266,7 @@ async function shutdown(signal: string) {
   try {
     // worker.close() stops pulling new jobs and waits for in-flight jobs to
     // finish (respecting BullMQ's lock renewal) instead of killing them mid-write.
-    await worker.close();
+    await Promise.all([worker.close(), fixWorker.close(), buildWorker.close()]);
     await prisma.$disconnect();
     console.log("[worker] shutdown complete");
     process.exit(0);

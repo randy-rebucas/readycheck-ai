@@ -50,12 +50,19 @@ model Organization {
   /// The user's own workspace, auto-created at signup. Can't be left or
   /// deleted, and never gets other members.
   personal  Boolean  @default(false)
+  /// Rule ids switched off in Rule packs; the worker skips them.
+  disabledRules String[] @default([])
   createdAt DateTime @default(now())
 
   memberships   Membership[]
   scans         Scan[]
+  projects      Project[]
   notifications Notification[]
   subscription  Subscription?
+  github        GitHubConnection?
+  triage        FindingTriage[]
+  fixRequests   FixRequest[]
+  buildSlices   BuildSlice[]
 }
 
 model Membership {
@@ -100,6 +107,119 @@ model Scan {
 
   @@index([orgId])
   @@index([userId])
+}
+
+/// An app being built here, from intake to production. Repositories that are
+/// only audited stay plain scans grouped by path; a project links to one via
+/// repoPath once code exists.
+model Project {
+  id        String       @id @default(uuid())
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId     String
+  /// Who started the intake (audit trail only).
+  user      User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId    String?
+  name      String
+  /// Intake answers keyed by question id. Shape is owned by the dashboard's
+  /// intake engine; the API only bounds its size.
+  answers   Json         @default("{}")
+  /// Lifecycle stages completed by hand ("plan", "design", "uat", "deploy"),
+  /// keyed by stage id with { at, by } values. Other gates come from scans.
+  signoffs  Json         @default("{}")
+  /// Scan path (git URL) of the project's repository, once connected.
+  repoPath  String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  slices BuildSlice[]
+
+  @@index([orgId])
+}
+
+/// The org's GitHub access, used to open pull requests and read deployments.
+/// The token is encrypted at rest (packages/github crypto); never returned.
+model GitHubConnection {
+  id        String       @id @default(uuid())
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId     String       @unique
+  tokenEnc  String
+  /// GitHub login the token belongs to, for display.
+  login     String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+/// Who owns a finding, by when, or that it doesn't apply. Keyed by repository
+/// and rule rather than issue id, since every scan creates new issue rows.
+model FindingTriage {
+  id            String       @id @default(uuid())
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId         String
+  repoPath      String
+  ruleId        String
+  assigneeId    String?
+  dueDate       DateTime?
+  dismissedAt   DateTime?
+  dismissReason String?
+  dismissedById String?
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([orgId, repoPath, ruleId])
+}
+
+/// An automatic fix: a branch and pull request for one or more findings.
+model FixRequest {
+  id          String       @id @default(uuid())
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId       String
+  userId      String?
+  scanId      String
+  repoPath    String
+  ruleIds     String[]
+  /// queued | working | opened | merged | closed | failed
+  status      String       @default("queued")
+  branch      String?
+  prNumber    Int?
+  prUrl       String?
+  summary     String?
+  /// Unified diff of the change (env file contents never included).
+  diff        String?
+  /// { resolved: string[], stillOpen: string[], introduced: string[] } from re-scanning the branch.
+  verification Json?
+  error       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([orgId, scanId])
+}
+
+/// One feature of a project, built as one pull request.
+model BuildSlice {
+  id          String       @id @default(uuid())
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId   String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId       String
+  position    Int
+  title       String
+  stories     String[]
+  /// Blueprint context the agent builds against.
+  spec        String
+  /// planned | queued | generating | review | merged | closed | failed
+  status      String       @default("planned")
+  branch      String?
+  prNumber    Int?
+  prUrl       String?
+  summary     String?
+  testsAdded  Int?
+  /// Findings the pre-review scan of the branch introduced.
+  issuesFound Json?
+  error       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  mergedAt    DateTime?
+
+  @@index([projectId])
 }
 
 model Issue {
@@ -147,6 +267,7 @@ model User {
   resetTokens       PasswordResetToken[]
   notificationReads NotificationRead[]
   scans             Scan[]
+  projects          Project[]
   memberships       Membership[]
 }
 

@@ -13,7 +13,13 @@ interface OrgList {
 }
 
 /** Header control for the org every dashboard page and API call acts in. */
-export default function OrgSwitcher({ chipClassName }: { chipClassName: string }) {
+export default function OrgSwitcher({
+  chipClassName,
+  menuClassName,
+}: {
+  chipClassName: string;
+  menuClassName?: string;
+}) {
   const [data, setData] = useState<OrgList | null>(null);
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -88,7 +94,7 @@ export default function OrgSwitcher({ chipClassName }: { chipClassName: string }
       </button>
 
       {open && (
-        <div className={`${menuStyles.menu} ${styles.menu}`} role="menu">
+        <div className={`${menuStyles.menu} ${styles.menu} ${menuClassName ?? ""}`} role="menu">
           <div className={menuStyles.menuHeader}>
             <span className={menuStyles.menuEmail}>Organizations</span>
           </div>

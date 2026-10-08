@@ -91,6 +91,14 @@ export interface Issue {
   estimatedEffort: string;
 }
 
+export type IssueCounts = Record<Issue["severity"], number>;
+
+export interface RepoFacts {
+  languages?: string[];
+  frameworks?: string[];
+  packageManager?: string;
+}
+
 export interface Scan {
   id: string;
   path: string;
@@ -101,18 +109,21 @@ export interface Scan {
   errorMessage: string | null;
   createdAt: string;
   completedAt: string | null;
+  facts?: RepoFacts | null;
+  /** Present on list responses only. */
+  issueCounts?: IssueCounts;
 }
 
 export interface ScanDetail extends Scan {
-  facts: Record<string, unknown> | null;
+  facts: RepoFacts | null;
   aiNarrative: string | null;
   progress?: string | null;
   issues: Issue[];
   categoryScores: CategoryScore[];
 }
 
-export async function listScans(): Promise<Scan[]> {
-  return requestJson("/scans");
+export async function listScans(limit = 100): Promise<Scan[]> {
+  return requestJson(`/scans?limit=${limit}`);
 }
 
 export async function getScan(id: string): Promise<ScanDetail> {
@@ -245,4 +256,242 @@ export async function changeMemberRole(userId: string, role: OrgRole): Promise<v
 
 export async function removeMember(userId: string): Promise<void> {
   await request(`/orgs/current/members/${encodeURIComponent(userId)}`, { method: "DELETE" });
+}
+
+/** An app being built here. Answers are keyed by intake question id (see lib/intake.ts). */
+export interface Project {
+  id: string;
+  name: string;
+  answers: Record<string, string | string[]>;
+  /** Hand-completed lifecycle stages, keyed by stage id. */
+  signoffs: Record<string, { at: string; by: string | null }>;
+  repoPath: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SignoffStage = "plan" | "design" | "build" | "uat" | "deploy";
+
+export async function listProjects(): Promise<Project[]> {
+  return requestJson("/projects");
+}
+
+export async function getProject(id: string): Promise<Project> {
+  return requestJson(`/projects/${encodeURIComponent(id)}`);
+}
+
+export async function createProject(name: string): Promise<Project> {
+  return requestJson("/projects", { method: "POST", body: JSON.stringify({ name }) });
+}
+
+export async function updateProject(
+  id: string,
+  patch: { name?: string; answers?: Project["answers"]; repoPath?: string | null }
+): Promise<Project> {
+  return requestJson(`/projects/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export async function setSignoff(id: string, stage: SignoffStage, done: boolean): Promise<Project> {
+  return requestJson(`/projects/${encodeURIComponent(id)}/signoffs`, {
+    method: "POST",
+    body: JSON.stringify({ stage, done }),
+  });
+}
+
+// ---------- GitHub ----------
+
+export interface GitHubConnection {
+  connected: boolean;
+  login: string | null;
+  connectedAt: string | null;
+}
+
+export async function getGitHubConnection(): Promise<GitHubConnection> {
+  return requestJson("/github/connection");
+}
+
+export async function connectGitHub(token: string): Promise<GitHubConnection> {
+  return requestJson("/github/connection", { method: "PUT", body: JSON.stringify({ token }) });
+}
+
+export async function disconnectGitHub(): Promise<void> {
+  await request("/github/connection", { method: "DELETE" });
+}
+
+export interface Deployment {
+  id: number;
+  environment: string;
+  ref: string;
+  sha: string;
+  createdAt: string;
+  creator: string | null;
+  state: string | null;
+  url: string | null;
+}
+
+export async function listDeployments(repoPath: string): Promise<Deployment[]> {
+  return requestJson(`/github/deployments?repoPath=${encodeURIComponent(repoPath)}`);
+}
+
+// ---------- Rule packs ----------
+
+export interface FixInfo {
+  kind: "template" | "ai" | "guided";
+  confidence: "high" | "review" | null;
+  plan: string[];
+  caveat?: string;
+}
+
+export interface CatalogRule {
+  id: string;
+  pack: string;
+  category: string;
+  description: string;
+  severity: Issue["severity"];
+  standards: string[];
+  fix: FixInfo;
+  enabled: boolean;
+}
+
+export interface RulesCatalog {
+  packs: { id: string; name: string; description: string }[];
+  rules: CatalogRule[];
+}
+
+export async function getRules(): Promise<RulesCatalog> {
+  return requestJson("/rules");
+}
+
+export async function setRuleEnabled(id: string, enabled: boolean): Promise<void> {
+  await request(`/rules/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ enabled }) });
+}
+
+// ---------- Triage, fixes, assistant ----------
+
+export interface Triage {
+  repoPath: string;
+  ruleId: string;
+  assigneeId: string | null;
+  dueDate: string | null;
+  dismissedAt: string | null;
+  dismissReason: string | null;
+}
+
+export async function listTriage(repoPath?: string): Promise<Triage[]> {
+  return requestJson(`/triage${repoPath ? `?repoPath=${encodeURIComponent(repoPath)}` : ""}`);
+}
+
+export async function setTriage(input: {
+  repoPath: string;
+  ruleId: string;
+  assigneeId?: string | null;
+  dueDate?: string | null;
+  dismissed?: boolean;
+  reason?: string;
+}): Promise<Triage> {
+  return requestJson("/triage", { method: "PUT", body: JSON.stringify(input) });
+}
+
+export interface ChecksSummary {
+  total: number;
+  passed: number;
+  failed: number;
+  pending: number;
+  runs: { name: string; status: string; conclusion: string | null }[];
+}
+
+export interface PullStatus {
+  state: "open" | "merged" | "closed";
+  mergedAt: string | null;
+  checks: ChecksSummary | null;
+}
+
+export interface FixRequest {
+  id: string;
+  scanId: string;
+  repoPath: string;
+  ruleIds: string[];
+  /** queued | working | opened | merged | closed | failed */
+  status: string;
+  branch: string | null;
+  prNumber: number | null;
+  prUrl: string | null;
+  summary: string | null;
+  diff: string | null;
+  verification: { resolved: string[]; stillOpen: string[]; introduced: string[] } | null;
+  error: string | null;
+  createdAt: string;
+  pull: PullStatus | null;
+}
+
+export async function listScanFixes(scanId: string): Promise<FixRequest[]> {
+  return requestJson(`/scans/${encodeURIComponent(scanId)}/fixes`);
+}
+
+export async function listFixes(): Promise<FixRequest[]> {
+  return requestJson("/fixes");
+}
+
+export async function createFix(scanId: string, ruleIds: string[]): Promise<FixRequest> {
+  return requestJson(`/scans/${encodeURIComponent(scanId)}/fixes`, {
+    method: "POST",
+    body: JSON.stringify({ ruleIds }),
+  });
+}
+
+export async function retryFix(id: string): Promise<FixRequest> {
+  return requestJson(`/fixes/${encodeURIComponent(id)}/retry`, { method: "POST" });
+}
+
+export async function askAssistant(scanId: string, issueId: string, question: string): Promise<{ answer: string }> {
+  return requestJson(`/scans/${encodeURIComponent(scanId)}/issues/${encodeURIComponent(issueId)}/ask`, {
+    method: "POST",
+    body: JSON.stringify({ question }),
+  });
+}
+
+// ---------- Build slices ----------
+
+export interface BuildSlice {
+  id: string;
+  position: number;
+  title: string;
+  stories: string[];
+  /** planned | queued | generating | review | merged | closed | failed */
+  status: string;
+  branch: string | null;
+  prNumber: number | null;
+  prUrl: string | null;
+  summary: string | null;
+  testsAdded: number | null;
+  issuesFound: { ruleId: string; severity: string; message: string }[] | null;
+  error: string | null;
+  mergedAt: string | null;
+  pull: PullStatus | null;
+}
+
+export async function listSlices(projectId: string): Promise<BuildSlice[]> {
+  return requestJson(`/projects/${encodeURIComponent(projectId)}/slices`);
+}
+
+export async function planSlices(
+  projectId: string,
+  slices: { title: string; stories: string[] }[],
+  spec: string
+): Promise<BuildSlice[]> {
+  return requestJson(`/projects/${encodeURIComponent(projectId)}/slices`, {
+    method: "POST",
+    body: JSON.stringify({ slices, spec }),
+  });
+}
+
+export async function startSlices(projectId: string): Promise<BuildSlice[]> {
+  return requestJson(`/projects/${encodeURIComponent(projectId)}/slices/start`, { method: "POST" });
+}
+
+export async function retrySlice(projectId: string, sliceId: string): Promise<BuildSlice[]> {
+  return requestJson(
+    `/projects/${encodeURIComponent(projectId)}/slices/${encodeURIComponent(sliceId)}/retry`,
+    { method: "POST" }
+  );
 }

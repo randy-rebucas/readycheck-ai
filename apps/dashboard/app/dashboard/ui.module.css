@@ -1,0 +1,509 @@
+/* Shared building blocks for dashboard pages. Tokens come from shell.module.css. */
+
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 2rem 2.25rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+@media (max-width: 700px) {
+  .page {
+    padding: 1.25rem 1rem 2.5rem;
+  }
+}
+
+/* ---------- Page header ---------- */
+.pageHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.pageTitle {
+  margin: 0;
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--heading);
+}
+
+.pageSub {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+/* ---------- Buttons ---------- */
+.btn,
+.btnPrimary,
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 42px;
+  padding: 0 1.25rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn {
+  border: 1.5px solid var(--heading);
+  background: var(--surface);
+  color: var(--heading);
+}
+
+.btn:hover {
+  background: var(--surface-2);
+}
+
+.btnPrimary {
+  border: 1.5px solid var(--red);
+  background: var(--red);
+  color: var(--on-red);
+}
+
+.btnPrimary:hover {
+  background: var(--red-hover);
+  border-color: var(--red-hover);
+}
+
+.btnGhost {
+  border: 0;
+  background: transparent;
+  color: var(--heading);
+  padding: 0 0.6rem;
+}
+
+.btnSm {
+  min-height: 34px;
+  padding: 0 0.95rem;
+  font-size: 0.85rem;
+}
+
+.btn:disabled,
+.btnPrimary:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.textLink {
+  color: var(--link);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------- Cards ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+
+.cardPad {
+  padding: 1.25rem 1.35rem;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1.1rem 1.35rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--heading);
+}
+
+.cardSub {
+  margin: 0.2rem 0 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ---------- Stat tiles ---------- */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.stat {
+  padding: 1rem 1.1rem;
+}
+
+.statValue {
+  display: block;
+  margin: 0.2rem 0 0.15rem;
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.statValueDanger {
+  color: var(--tone-red-fg);
+}
+
+.statNote {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.statNoteUp {
+  color: var(--tone-green-fg);
+}
+
+.statNoteDown {
+  color: var(--tone-red-fg);
+}
+
+/* ---------- Badges ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+  text-transform: none;
+}
+
+.tone-green {
+  background: var(--tone-green-bg);
+  color: var(--tone-green-fg);
+}
+
+.tone-blue {
+  background: var(--tone-blue-bg);
+  color: var(--tone-blue-fg);
+}
+
+.tone-amber {
+  background: var(--tone-amber-bg);
+  color: var(--tone-amber-fg);
+}
+
+.tone-red {
+  background: var(--tone-red-bg);
+  color: var(--tone-red-fg);
+}
+
+.tone-neutral {
+  background: var(--tone-neutral-bg);
+  color: var(--tone-neutral-fg);
+}
+
+.text-green {
+  color: var(--tone-green-fg);
+}
+
+.text-blue {
+  color: var(--tone-blue-fg);
+}
+
+.text-amber {
+  color: var(--tone-amber-fg);
+}
+
+.text-red {
+  color: var(--tone-red-fg);
+}
+
+.text-neutral {
+  color: var(--text-muted);
+}
+
+/* Severity: critical is the only solid pill so it reads first. */
+.sevCritical {
+  background: var(--red);
+  color: var(--on-red);
+}
+
+.sevHigh {
+  background: var(--tone-red-bg);
+  color: var(--tone-red-fg);
+}
+
+.sevMedium {
+  background: var(--tone-amber-bg);
+  color: var(--tone-amber-fg);
+}
+
+.sevLow {
+  background: var(--tone-neutral-bg);
+  color: var(--tone-neutral-fg);
+}
+
+/* ---------- Filter chips ---------- */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 0.95rem;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--heading);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.chipActive {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: var(--on-navy);
+}
+
+.chipDivider {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+  margin: 0 0.25rem;
+}
+
+/* ---------- Data rows (a table whose rows are links) ---------- */
+.table {
+  display: flex;
+  flex-direction: column;
+}
+
+.tableHead,
+.tableRow {
+  display: grid;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.35rem;
+}
+
+.tableHead {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.tableRow {
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.92rem;
+}
+
+.tableRow:last-child {
+  border-bottom: 0;
+}
+
+a.tableRow:hover {
+  background: var(--surface-hover);
+}
+
+.rowTitle {
+  display: block;
+  font-weight: 700;
+  color: var(--heading);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowSub {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.scoreCell {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 800;
+  color: var(--heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--tone-blue-fg);
+  font-weight: 600;
+}
+
+.live::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live::before {
+    animation: none;
+  }
+}
+
+/* ---------- Notes ---------- */
+.empty {
+  padding: 2.5rem 1.35rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.error {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: var(--tone-red-bg);
+  color: var(--tone-red-fg);
+  font-size: 0.88rem;
+}
+
+/* ---------- Text input ---------- */
+.input {
+  flex: 1;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 0.9rem;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--heading);
+  font: inherit;
+  font-size: 0.92rem;
+}
+
+.input::placeholder {
+  color: var(--placeholder);
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--heading);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Pagination ---------- */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.pageBtn,
+.pageEllipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 0.6rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.pageBtn {
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--heading);
+  text-decoration: none;
+}
+
+.pageBtnActive {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: var(--on-navy);
+}
+
+.pageBtnDisabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.pageEllipsis {
+  color: var(--text-faint);
+}

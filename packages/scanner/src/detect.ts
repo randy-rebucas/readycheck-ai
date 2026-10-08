@@ -82,9 +82,12 @@ function hasTestConfig(root: string): boolean {
   );
 }
 
+/** Committed templates hold variable names only; they're the recommended fix, not a leak. */
+const ENV_TEMPLATES = new Set([".env.example", ".env.sample", ".env.template", ".env.dist"]);
+
 function hasEnvFiles(root: string): boolean {
   try {
-    return readdirSync(root).some((f: string) => f.startsWith(".env"));
+    return readdirSync(root).some((f: string) => f.startsWith(".env") && !ENV_TEMPLATES.has(f));
   } catch {
     return false;
   }
